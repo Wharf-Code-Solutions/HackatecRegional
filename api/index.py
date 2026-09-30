@@ -40,8 +40,8 @@ def registrar_incidencia(reporte: ReporteNuevo):
         "p_categoria_id": reporte.categoria_id,
         "p_lat": reporte.lat,
         "p_lon": reporte.lon,
-        "p_descripcion": reporte.descripcion,
-        "p_foto_url": reporte.foto_url,
+        "p_descripcion": reporte.descripcion if reporte.descripcion else None,
+        "p_foto_url": reporte.foto_url if reporte.foto_url else None,
         "p_email": reporte.email_ciudadano
     }
 
@@ -52,5 +52,10 @@ def registrar_incidencia(reporte: ReporteNuevo):
     except Exception as e:
         error_msg = str(e)
         print(f"🔥 ERROR REAL: {error_msg}") # Esto lo imprimirá en tu consola
-        # Temporalmente enviamos el error real a Swagger para leerlo
+        
+        # Capturamos el código 22023 (Coordenadas inválidas o Categoría inactiva)
+        if "22023" in error_msg or "inválida" in error_msg.lower():
+            raise HTTPException(status_code=422, detail=f"Error de validación: {error_msg}")
+            
+        # Temporalmente enviamos el error real a Swagger para leerlo si es otro tipo de error
         raise HTTPException(status_code=500, detail=f"Detalle técnico: {error_msg}")
