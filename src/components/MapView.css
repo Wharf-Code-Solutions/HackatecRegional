@@ -1,0 +1,89 @@
+/* src/components/MapView.css */
+
+.map-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* El pin que siempre se queda en el centro */
+.map-marker-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -100%);
+  pointer-events: none; /* Permite arrastrar el mapa a través del icono */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 10;
+}
+
+.map-marker-tooltip {
+  background-color: var(--gob-guinda);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+  margin-bottom: 5px;
+}
+
+/* Botón flotante para generar reporte */
+/* Botón flotante para generar reporte (Actualizado) */
+.btn-generar-reporte {
+  position: absolute;
+  bottom: 120px; /* Más arriba, seguro para cualquier móvil */
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: var(--gob-guinda);
+  color: white;
+  font-family: var(--font-gob);
+  font-weight: 600;
+  font-size: 16px;
+  padding: 14px 32px;
+  border: none;
+  border-radius: 30px;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+  z-index: 20;
+  transition: background-color 0.3s, transform 0.2s;
+  
+  /* Flexbox para alinear el icono y el texto */
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-generar-reporte:hover {
+  background-color: #7a1a32;
+  transform: translateX(-50%) scale(1.05);
+}
+
+/* Botón personalizado de GPS ciudadano (Movido arriba a la derecha) */
+.btn-ubicarme {
+  position: absolute;
+  top: 20px;   /* <--- Cambiamos bottom por top */
+  right: 20px;
+  background-color: white;
+  color: var(--gob-gris-oscuro);
+  font-family: var(--font-gob);
+  font-weight: 600;
+  font-size: 14px;
+  padding: 10px 16px;
+  border: 1px solid var(--gob-dorado);
+  border-radius: 30px;
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.btn-ubicarme:hover {
+  background-color: var(--gob-gris-claro);
+  transform: scale(1.05);
+}
