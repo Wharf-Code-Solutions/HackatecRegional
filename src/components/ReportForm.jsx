@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, variablesFaltantes } from '../lib/supabase'
 import { subirFoto } from '../lib/subirFoto'
 import './ReportForm.css'
 
@@ -18,6 +18,7 @@ export default function ReportForm({ lat, lon, onSuccess }) {
   const [resultado, setResultado] = useState(null)
 
   useEffect(() => {
+    if (!supabase) return
     supabase
       .from('categorias')
       .select('id, slug, nombre')
@@ -96,6 +97,18 @@ export default function ReportForm({ lat, lon, onSuccess }) {
   }
 
   const ocupado = estado !== 'idle'
+
+  if (!supabase) {
+    return (
+      <div className="report-form" role="alert">
+        <h2>Falta configuración</h2>
+        <p className="report-form__error">
+          Este despliegue se compiló sin: {variablesFaltantes.join(', ')}. Agrégalas en Vercel
+          (Production y Preview) y vuelve a desplegar sin caché.
+        </p>
+      </div>
+    )
+  }
 
   if (resultado) {
     return (
