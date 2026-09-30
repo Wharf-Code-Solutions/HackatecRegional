@@ -1,23 +1,56 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+import os
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field, EmailStr
+from typing import Optional
+from supabase import create_client, Client
 
-# Vercel requiere que la instancia se llame 'app'
-app = FastAPI(docs_url="/api/docs", openapi_url="/api/openapi.json")
+from dotenv import load_dotenv # <-- NUEVA LÍNEA
 
-# Evitar problemas de CORS entre tu React y tu FastAPI
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"], 
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+load_dotenv() # <-- NUEVA LÍNEA (Carga el .env en la memoria de Python)
 
+app = FastAPI(title="API Hackatec Regional")
+
+# 1. Conexión a Supabase (Usando la llave Service Role para saltar el RLS)
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+
+# Evita que falle localmente si se nos olvida poner las variables en la terminal
+if SUPABASE_URL and SUPABASE_KEY:
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# 2. Modelo de Validación (Contrato con el Frontend)
+class ReporteNuevo(BaseModel):
+    categoria_id: int
+    lat: float = Field(..., ge=-90, le=90)
+    lon: float = Field(..., ge=-180, le=180)
+    descripcion: Optional[str] = Field(None, max_length=500)
+    foto_url: Optional[str] = None
+    email_ciudadano: Optional[EmailStr] = None
+
+# 3. Health Check
 @app.get("/api/health")
-def read_root():
-    return {"status": "online", "message": "Motor FastAPI inicializado en Vercel"}
+def health_check():
+    return {"status": "online", "db_connected": bool(SUPABASE_URL)}
 
-# Aquí agregaremos después tu ruta para el envío de correos
-@app.post("/api/notificar-cierre")
-def enviar_notificacion():
-    return {"status": "pendiente", "message": "Módulo de correos por construir"}
+# 4. Endpoint Principal: Registrar Incidencia
+@app.post("/api/reportes")
+def registrar_incidencia(reporte: ReporteNuevo):
+    # Mapeamos los datos de React a los parámetros "p_" que pide tu función SQL
+    payload = {
+        "p_categoria_id": reporte.categoria_id,
+        "p_lat": reporte.lat,
+        "p_lon": reporte.lon,
+        "p_descripcion": reporte.descripcion,
+        "p_foto_url": reporte.foto_url,
+        "p_email": reporte.email_ciudadano
+    }
+
+    try:
+        # Ejecutamos la función mágica de la base de datos
+        response = supabase.rpc("registrar_incidencia", payload).execute()
+        return response.data
+    except Exception as e:
+        error_msg = str(e)
+        print(f"🔥 ERROR REAL: {error_msg}") # Esto lo imprimirá en tu consola
+        # Temporalmente enviamos el error real a Swagger para leerlo
+        raise HTTPException(status_code=500, detail=f"Detalle técnico: {error_msg}")
