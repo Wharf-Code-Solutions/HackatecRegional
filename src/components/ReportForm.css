@@ -1,0 +1,34 @@
+.report-form {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 80vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: #fff;
+  color: #1a1a1a;
+  text-align: left;
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25);
+  z-index: 10;
+}
+
+.report-form h2 { margin: 0; font-size: 1.2rem; }
+.report-form label { display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; }
+.report-form select,
+.report-form textarea,
+.report-form input[type='email'],
+.report-form input[type='file'] { font-size: 1rem; padding: 8px; border: 1px solid #ccc; border-radius: 8px; }
+.report-form button { padding: 12px; font-size: 1rem; border: 0; border-radius: 8px; background: #d9480f; color: #fff; }
+.report-form button:disabled { opacity: 0.6; }
+.report-form__meta { margin: 0; font-size: 0.8rem; color: #666; }
+.report-form__error { margin: 0; color: #c92a2a; font-size: 0.9rem; }
+.report-form__preview { max-height: 140px; object-fit: cover; border-radius: 8px; }
+
+@media (min-width: 768px) {
+  .report-form { left: auto; right: 24px; bottom: 24px; width: 360px; border-radius: 16px; }
+}

@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.117.2",
+    "browser-image-compression": "^2.0.2",
     "mapbox-gl": "^3.32.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
