@@ -1,12 +1,24 @@
 :root {
   /* Paleta Oficial Gob.mx V3 */
-  --gob-guinda: #9F2241;    /* Color principal (botones, encabezados) */
-  --gob-dorado: #D4C19C;    /* Color secundario (acentos, bordes) */
-  --gob-verde: #235B4E;     /* Color de éxito o elementos informativos */
-  --gob-gris-oscuro: #333333; /* Texto principal */
+  --gob-guinda: #9D2449;    /* Color principal (botones, encabezados) */
+  --gob-dorado: #BC955C;    /* Color secundario (acentos, bordes) */
+  --gob-verde: #13322E;     /* Color de éxito o elementos informativos */
+  --gob-gris-oscuro: #545454; /* Texto principal */
   --gob-gris-claro: #F4F4F4;  /* Fondos secundarios */
-  
-  --font-gob: 'Montserrat', sans-serif;
+
+  --font-gob: 'Noto Sans', 'Montserrat', sans-serif;
+}
+
+/* Botones primarios del kit en guinda institucional */
+.btn-primary {
+  --bs-btn-bg: var(--gob-guinda);
+  --bs-btn-border-color: var(--gob-guinda);
+  --bs-btn-hover-bg: #7a1a32;
+  --bs-btn-hover-border-color: #7a1a32;
+  --bs-btn-active-bg: #611232;
+  --bs-btn-active-border-color: #611232;
+  --bs-btn-disabled-bg: var(--gob-guinda);
+  --bs-btn-disabled-border-color: var(--gob-guinda);
 }
 
 body {

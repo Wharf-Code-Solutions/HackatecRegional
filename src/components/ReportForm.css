@@ -1,0 +1,86 @@
+/* Layout y ajustes propios sobre el kit gob.mx. El kit fija html{font-size:10px}, por eso todo va en px. */
+
+/* Móvil: hoja inferior sobre el mapa, debajo del NavBar (z-index 1000) */
+.report-overlay {
+  position: fixed;
+  top: 60px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 500;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.report-form {
+  width: 100%;
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 16px;
+  background: #fff;
+  color: var(--gob-gris-oscuro);
+  font-family: var(--font-gob);
+  font-size: 15px;
+  line-height: 1.4;
+  border-radius: 16px 16px 0 0;
+  border-top: 4px solid var(--gob-dorado);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.report-form__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.report-form__header h2 { margin: 0; font-size: 20px; line-height: 1.2; color: var(--gob-guinda); }
+.report-form__cerrar { border: 0; background: none; font-size: 28px; line-height: 1; padding: 0 8px; color: var(--gob-gris-oscuro); cursor: pointer; }
+.report-form__meta { margin: 4px 0 12px; font-size: 12px; color: #666; word-break: break-all; }
+.report-form__acciones { display: flex; gap: 8px; flex-wrap: wrap; }
+.report-form__acciones .btn { flex: 1 1 140px; }
+.report-form__foto { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.report-form__foto img { height: 90px; max-width: 60%; object-fit: cover; border-radius: 8px; }
+
+/* Campos y botones del kit, con tamaños uniformes */
+.report-form .form-label { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 600; color: var(--gob-gris-oscuro); }
+.report-form .form-control { font-size: 15px; font-weight: 400; }
+.report-form .btn { font-size: 15px; font-weight: 600; padding: 10px 16px; border-radius: 6px; }
+.report-form .btn-sm { font-size: 13px; padding: 6px 12px; }
+.report-form .btn-primary { background-color: var(--gob-guinda); border-color: var(--gob-guinda); color: #fff; }
+.report-form .btn-primary:hover,
+.report-form .btn-primary:focus-visible { background-color: #7a1a32; border-color: #7a1a32; color: #fff; }
+.report-form .btn-primary:disabled { background-color: var(--gob-guinda); border-color: var(--gob-guinda); color: #fff; opacity: 0.6; }
+.report-form .btn-outline-secondary { color: var(--gob-gris-oscuro); border-color: #999; background: #fff; }
+.report-form .btn-outline-secondary:hover { background: var(--gob-gris-claro); color: var(--gob-gris-oscuro); }
+.report-form .alert { font-size: 14px; }
+
+/* Categorías: radios con ícono */
+.categorias { border: 0; padding: 0; margin: 0 0 16px; min-width: 0; }
+.categorias legend { float: none; width: auto; padding: 0; margin-bottom: 6px; }
+.categorias__grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.categoria {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 10px 6px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--gob-gris-oscuro);
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.categoria input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.categoria:hover { border-color: var(--gob-dorado); }
+.categoria.is-selected { border-color: var(--gob-guinda); background: var(--gob-guinda); color: #fff; }
+.categoria:focus-within { outline: 3px solid var(--gob-dorado); outline-offset: 2px; }
+
+/* Tablet/escritorio: tarjeta lateral; el mapa sigue siendo movible para ajustar la ubicación */
+@media (min-width: 768px) {
+  .report-overlay { background: none; align-items: flex-start; justify-content: flex-start; pointer-events: none; padding: 16px; }
+  .report-form { width: 380px; max-height: 100%; border-radius: 12px; pointer-events: auto; }
+  .categorias__grid { grid-template-columns: repeat(3, 1fr); }
+}

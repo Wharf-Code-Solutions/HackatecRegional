@@ -1,11 +1,11 @@
 import { useState, useRef } from 'react';
-import Map from 'react-map-gl';
+import Map from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import './MapView.css';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 
-export default function MapView({ onLocationChange }) {
+export default function MapView({ onLocationChange, onGenerarReporte }) {
   const mapRef = useRef();
   
   const [viewState, setViewState] = useState({
@@ -26,6 +26,9 @@ export default function MapView({ onLocationChange }) {
 
   const handleBotonClick = () => {
     console.log("¡Botón presionado! Coordenadas listas:", viewState.latitude, viewState.longitude);
+    if (onGenerarReporte) {
+      onGenerarReporte({ lat: viewState.latitude, lon: viewState.longitude });
+    }
   };
 
   // NUEVA FUNCIÓN: Leer GPS nativo del celular/PC
@@ -38,7 +41,7 @@ export default function MapView({ onLocationChange }) {
           latitude: position.coords.latitude,
           zoom: 16
         });
-      }, (error) => {
+      }, () => {
         alert("Por favor, permite el acceso a tu ubicación en tu navegador para usar esta función.");
       });
     } else {
