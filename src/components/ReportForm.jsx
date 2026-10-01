@@ -138,7 +138,8 @@ export default function ReportForm({ lat, lon, onClose, onSuccess }) {
   useEffect(() => () => preview && URL.revokeObjectURL(preview), [preview])
 
   // Los errores se derivan de los valores; solo se muestran los de campos tocados o tras intentar enviar
-  const errores = { ...validarFormulario({ categoriaId, descripcion, nombre, email, lat, lon }), ...(errorFoto ? { foto: errorFoto } : {}) }
+  const errorFotoObligatoria = foto ? null : 'Agrega una foto del problema'
+  const errores = { ...validarFormulario({ categoriaId, descripcion, nombre, email, lat, lon }), ...((errorFoto || errorFotoObligatoria) ? { foto: errorFoto || errorFotoObligatoria } : {}) }
   const ver = (campo) => ((tocados[campo] || intentado) ? errores[campo] : null)
   const tocar = (campo) => setTocados((t) => ({ ...t, [campo]: true }))
   const props = (campo) => ({
@@ -243,11 +244,8 @@ export default function ReportForm({ lat, lon, onClose, onSuccess }) {
     }
 
     try {
-      let foto_url = null
-      if (foto) {
-        setEstado('subiendo')
-        foto_url = await subirFoto(foto)
-      }
+      setEstado('subiendo')
+      const foto_url = await subirFoto(foto)
 
       setEstado('enviando')
       const res = await fetch('/api/reportes', {
@@ -315,7 +313,7 @@ export default function ReportForm({ lat, lon, onClose, onSuccess }) {
         </p>
 
         <div className="mb-3">
-          <span className="form-label d-block">Foto (opcional): ayuda a identificar el problema</span>
+          <span className="form-label d-block">Foto (obligatoria): muestra el problema</span>
           <div className="report-form__acciones">
             <button
               {...props('foto')}
@@ -331,7 +329,7 @@ export default function ReportForm({ lat, lon, onClose, onSuccess }) {
           </div>
           <input ref={inputCamara} type="file" hidden accept={TIPOS_FOTO.join(',')} capture="environment" onChange={elegirFoto} />
           <input ref={inputGaleria} type="file" hidden accept={TIPOS_FOTO.join(',')} onChange={elegirFoto} />
-          <MensajeError id="rf-foto-error" texto={errorFoto} />
+          <MensajeError id="rf-foto-error" texto={ver('foto')} />
           {preview && (
             <div className="report-form__foto">
               <img src={preview} alt="Vista previa de la foto" />

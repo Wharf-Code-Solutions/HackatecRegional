@@ -497,7 +497,7 @@ class ReporteNuevo(BaseModel):
     lat: float                 = Field(..., ge=-90,  le=90,  description="Latitud GPS")
     lon: float                 = Field(..., ge=-180, le=180, description="Longitud GPS")
     descripcion: Optional[str] = Field(None, max_length=500)
-    foto_url:    Optional[str] = None
+    foto_url:    Optional[str] = Field(..., description="URL de la foto en Storage (obligatoria)")
     email_ciudadano: Optional[EmailStr] = None
     nombre_ciudadano: Optional[str] = Field(None, max_length=100)
 
@@ -529,8 +529,10 @@ class ReporteNuevo(BaseModel):
     @field_validator("foto_url")
     @classmethod
     def validar_foto(cls, v):
-        # Solo se aceptan fotos subidas al bucket público de este proyecto de Supabase
-        if v is None or not SUPABASE_URL:
+        # La foto es obligatoria y solo se aceptan las subidas al bucket público de este proyecto de Supabase
+        if v is None:
+            raise ValueError("La foto del problema es obligatoria.")
+        if not SUPABASE_URL:
             return v
         prefijo = f"{SUPABASE_URL.rstrip('/')}/storage/v1/object/public/reportes-fotos/"
         if not v.startswith(prefijo):
