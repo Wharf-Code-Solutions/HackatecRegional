@@ -99,6 +99,11 @@ export default function Rastreo() {
   const [respuesta, setRespuesta] = useState({ folio: null, tick: -1, datos: null, error: null });
   const inputRef = useRef(null);
 
+  useEffect(() => {
+    document.documentElement.classList.add('pagina-fluida');
+    return () => document.documentElement.classList.remove('pagina-fluida');
+  }, []);
+
   const formatoValido = FORMATO_FOLIO.test(folioUrl);
   const hayConsulta = folioUrl !== '';
   // "Cargando" = todavía no llega la respuesta de la consulta actual (folio + actualización)

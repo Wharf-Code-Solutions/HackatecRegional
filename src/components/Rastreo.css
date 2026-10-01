@@ -96,3 +96,11 @@
   .rastreo-resultado { animation: none; }
   .rastreo-cargando__giro { animation-duration: 2.4s; }
 }
+
+/* Navegadores internos de Gmail/Outlook: 100vw/100dvh miden mal y recortan la página. Aquí la página fluye con el
+   scroll normal del documento (sin alto fijo). La clase la pone Rastreo.jsx en <html> solo mientras está montado. */
+html.pagina-fluida, html.pagina-fluida body { height: auto; min-height: 100%; background: var(--gob-gris-claro); }
+html.pagina-fluida .app-shell { height: auto; min-height: 100vh; overflow: visible; }
+html.pagina-fluida .app-main { height: auto; margin-top: 0; padding-top: 60px; box-sizing: border-box; min-height: 100vh; }
+html.pagina-fluida .rastreo { position: static; overflow: visible; min-height: calc(100vh - 60px); }
+html.pagina-fluida .rastreo__contenido { padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px)); }
