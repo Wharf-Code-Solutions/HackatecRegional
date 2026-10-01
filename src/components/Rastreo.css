@@ -1,0 +1,305 @@
+/* src/components/Rastreo.css */
+
+.rastreo-wrapper {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 32px 24px;
+  font-family: var(--font-gob);
+  background-color: #F9F9F9;
+  min-height: calc(100vh - 60px);
+}
+
+.rastreo-header h1 {
+  font-size: 24px;
+  color: var(--gob-gris-oscuro);
+  margin: 0 0 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rastreo-header p {
+  font-size: 14px;
+  color: #666;
+  margin: 0 0 24px 0;
+  line-height: 1.5;
+}
+
+/* Caja de Búsqueda */
+.search-box {
+  background: white;
+  padding: 24px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  margin-bottom: 24px;
+  border: 1px solid #EEE;
+}
+
+.search-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gob-gris-oscuro);
+  margin-bottom: 8px;
+}
+
+.search-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.search-input {
+  padding: 12px 16px;
+  font-size: 16px;
+  border: 1px solid #CCC;
+  border-radius: 4px;
+  font-family: var(--font-gob);
+  outline: none;
+}
+
+.search-input:focus {
+  border-color: var(--gob-guinda);
+}
+
+.btn-buscar {
+  background-color: var(--gob-guinda);
+  color: white;
+  padding: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.2s;
+}
+
+.btn-buscar:hover {
+  background-color: #7a1a32;
+}
+
+/* Tarjeta de Resultados */
+.result-card {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  border-left: 6px solid var(--gob-guinda);
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.result-header {
+  padding: 24px;
+  border-bottom: 1px solid #EEE;
+}
+
+.result-folio-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.tag-folio-dark {
+  background-color: var(--gob-gris-oscuro);
+  color: white;
+  padding: 4px 8px;
+  font-weight: 700;
+  font-size: 12px;
+  border-radius: 4px;
+}
+
+.result-date {
+  font-size: 13px;
+  color: #666;
+}
+
+.result-title {
+  font-size: 20px;
+  color: var(--gob-gris-oscuro);
+  margin: 0 0 8px 0;
+}
+
+.result-location {
+  font-size: 14px;
+  color: #555;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-badge {
+  display: inline-block;
+  background-color: #FDE8EC;
+  color: var(--gob-guinda);
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* Línea de Tiempo */
+.timeline-section {
+  padding: 24px;
+}
+
+.timeline-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gob-gris-oscuro);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.timeline {
+  position: relative;
+  padding-left: 16px;
+}
+
+.timeline-item {
+  position: relative;
+  padding-left: 24px;
+  padding-bottom: 24px;
+  border-left: 2px solid #EEE;
+}
+
+.timeline-item:last-child {
+  border-left: 2px solid transparent;
+  padding-bottom: 0;
+}
+
+.timeline-icon {
+  position: absolute;
+  left: -11px;
+  top: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid #CCC;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: white;
+}
+
+.timeline-item.completed .timeline-icon {
+  background: var(--gob-verde);
+  border-color: var(--gob-verde);
+}
+
+.timeline-item.active .timeline-icon {
+  background: var(--gob-guinda);
+  border-color: var(--gob-guinda);
+}
+
+.timeline-item.active {
+  border-left-color: var(--gob-guinda);
+}
+
+.timeline-item.completed {
+  border-left-color: var(--gob-verde);
+}
+
+.step-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 4px;
+}
+
+.step-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--gob-gris-oscuro);
+}
+
+.timeline-item.pending .step-title {
+  color: #888;
+}
+
+.step-time {
+  font-size: 12px;
+  color: #666;
+}
+
+.step-desc {
+  font-size: 13px;
+  color: #555;
+  line-height: 1.4;
+}
+
+.step-highlight {
+  background-color: #F9F9F9;
+  border: 1px solid #EEE;
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+/* Resonancia Comunitaria */
+.community-impact {
+  background-color: #F4F4F4;
+  padding: 16px;
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.impact-icon {
+  font-size: 20px;
+}
+
+.impact-text h4 {
+  margin: 0 0 4px 0;
+  font-size: 13px;
+  color: var(--gob-gris-oscuro);
+}
+
+.impact-text p {
+  margin: 0;
+  font-size: 13px;
+  color: #555;
+  line-height: 1.4;
+}
+
+/* Footer del Rastreo */
+.result-footer {
+  padding: 20px 24px;
+  border-top: 1px solid #EEE;
+  display: flex;
+  gap: 12px;
+}
+
+.btn-secondary {
+  flex: 1;
+  background: white;
+  border: 1px solid #CCC;
+  color: var(--gob-gris-oscuro);
+  padding: 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+}
+
+.disclaimer {
+  text-align: center;
+  font-size: 12px;
+  color: #888;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
