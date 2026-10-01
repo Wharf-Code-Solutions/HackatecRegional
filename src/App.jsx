@@ -3,12 +3,36 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import './App.css'
 import NavBar from './components/NavBar';
 
+// Tras un nuevo despliegue, una pestaña con la versión anterior pide archivos con nombres que ya no existen y la
+// ruta se queda en "Cargando…". Si falla la descarga, se recarga la página una vez para tomar la versión nueva.
+const CLAVE_RECARGA = 'recarga_por_actualizacion';
+function lazyRuta(importar) {
+  return lazy(() =>
+    importar().then(
+      (modulo) => {
+        try { sessionStorage.removeItem(CLAVE_RECARGA); } catch { /* sin almacenamiento: no pasa nada */ }
+        return modulo;
+      },
+      (error) => {
+        try {
+          if (!sessionStorage.getItem(CLAVE_RECARGA)) {
+            sessionStorage.setItem(CLAVE_RECARGA, '1');
+            window.location.reload();
+            return new Promise(() => {}); // la página se recarga: no hay nada que pintar
+          }
+        } catch { /* sin almacenamiento: se muestra el error */ }
+        throw error;
+      },
+    ),
+  );
+}
+
 // Carga diferida por ruta: el mapa (mapbox-gl pesa ~1.8 MB) ya no frena el primer pintado
-const CiudadanoPage = lazy(() => import('./components/CiudadanoPage'));
-const Dashboard = lazy(() => import('./components/Dashboard'));
-const DashboardInfo = lazy(() => import('./components/DashboardInfo'));
-const Rastreo = lazy(() => import('./components/Rastreo'));
-const Terminos = lazy(() => import('./components/Terminos'));
+const CiudadanoPage = lazyRuta(() => import('./components/CiudadanoPage'));
+const Dashboard = lazyRuta(() => import('./components/Dashboard'));
+const DashboardInfo = lazyRuta(() => import('./components/DashboardInfo'));
+const Rastreo = lazyRuta(() => import('./components/Rastreo'));
+const Terminos = lazyRuta(() => import('./components/Terminos'));
 
 function Cargando() {
   return (

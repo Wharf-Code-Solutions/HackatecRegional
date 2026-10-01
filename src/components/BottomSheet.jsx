@@ -27,17 +27,27 @@ export default function BottomSheet({ titulo, onClose, bloqueante = false, child
     setTimeout(onClose, sinAnimacion() ? 0 : DURACION_SALIDA);
   }, [cerrando, onClose]);
 
+  // El padre suele pasar `onClose` en línea (cambia en cada render, p. ej. al refrescar los pines o mover el mapa).
+  // El efecto de foco lee siempre la versión actual desde estas refs y solo corre al abrir y cerrar la hoja:
+  // si dependiera de `cerrar`, cada render del padre le quitaría el foco al campo que se está escribiendo.
+  const cerrarRef = useRef(cerrar);
+  const bloqueanteRef = useRef(bloqueante);
+  useEffect(() => {
+    cerrarRef.current = cerrar;
+    bloqueanteRef.current = bloqueante;
+  });
+
   // Foco, tecla Esc y devolución del foco al elemento que abrió la hoja
   useEffect(() => {
     const previo = document.activeElement;
     hojaRef.current?.focus({ preventScroll: true });
-    const alTeclear = (e) => { if (e.key === 'Escape' && !bloqueante) cerrar(); };
+    const alTeclear = (e) => { if (e.key === 'Escape' && !bloqueanteRef.current) cerrarRef.current(); };
     document.addEventListener('keydown', alTeclear);
     return () => {
       document.removeEventListener('keydown', alTeclear);
       previo?.focus?.({ preventScroll: true });
     };
-  }, [cerrar, bloqueante]);
+  }, []);
 
   // ---- Deslizar hacia abajo para cerrar (solo móvil) ----
   function alPulsar(e) {
