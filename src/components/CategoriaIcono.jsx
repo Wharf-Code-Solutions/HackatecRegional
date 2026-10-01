@@ -1,3 +1,10 @@
+const ACCESIBILIDAD = (
+  <>
+    <circle cx="10" cy="4" r="1.6" />
+    <path d="M10 7v6h5l3 5M10 10h4M8 21a5 5 0 1 1 0-9" />
+  </>
+)
+
 // Íconos de trazo por slug de categoría. Un slug nuevo cae en el ícono genérico.
 const ICONOS = {
   bache: (
@@ -18,12 +25,7 @@ const ICONOS = {
       <path d="M8 2h8l4 4v2l-4 4H8L4 8V6l4-4z" />
     </>
   ),
-  banqueta: (
-    <>
-      <circle cx="10" cy="4" r="1.6" />
-      <path d="M10 7v6h5l3 5M10 10h4M8 21a5 5 0 1 1 0-9" />
-    </>
-  ),
+  rampa: ACCESIBILIDAD,
   semaforo: (
     <>
       <rect x="8" y="2" width="8" height="20" rx="2" />

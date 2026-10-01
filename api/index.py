@@ -82,8 +82,9 @@ class ReporteNuevo(BaseModel):
     descripcion: Optional[str] = Field(None, max_length=500)
     foto_url:    Optional[str] = None
     email_ciudadano: Optional[EmailStr] = None
+    nombre_ciudadano: Optional[str] = Field(None, max_length=100)
 
-    @field_validator("descripcion", "foto_url", mode="before")
+    @field_validator("descripcion", "foto_url", "nombre_ciudadano", mode="before")
     @classmethod
     def limpiar_vacios(cls, v):
         if isinstance(v, str) and v.strip() == "": return None
@@ -129,7 +130,9 @@ def obtener_categorias():
 @app.post("/api/reportes", tags=["Ciudadano"], status_code=201)
 def registrar_reporte(reporte: ReporteNuevo, request: Request):
     """Registra un reporte ciudadano. Incluye rate-limit 5 req/min por IP."""
-    ip = request.client.host if request.client else "unknown"
+    # Detrás del proxy de Vercel, la IP real del ciudadano viene en X-Forwarded-For
+    forwarded = request.headers.get("x-forwarded-for", "")
+    ip = forwarded.split(",")[0].strip() or (request.client.host if request.client else "unknown")
     check_rate_limit(ip)
 
     payload = {
@@ -139,6 +142,7 @@ def registrar_reporte(reporte: ReporteNuevo, request: Request):
         "p_descripcion":  reporte.descripcion,
         "p_foto_url":     reporte.foto_url,
         "p_email":        str(reporte.email_ciudadano) if reporte.email_ciudadano else None,
+        "p_nombre":       reporte.nombre_ciudadano,
     }
 
     try:

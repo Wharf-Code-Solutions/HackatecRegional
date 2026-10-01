@@ -11,6 +11,7 @@ const MAX_FOTO_MB = 15 // límite de entrada; se comprime antes de subir (bucket
 export default function ReportForm({ lat, lon, onClose, onSuccess }) {
   const [categorias, setCategorias] = useState([])
   const [categoriaId, setCategoriaId] = useState('')
+  const [nombre, setNombre] = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [email, setEmail] = useState('')
   const [foto, setFoto] = useState(null)
@@ -54,6 +55,7 @@ export default function ReportForm({ lat, lon, onClose, onSuccess }) {
   async function enviar(e) {
     e.preventDefault()
     setError(null)
+    if (!nombre.trim()) return setError('Escribe tu nombre')
     if (!categoriaId) return setError('Elige una categoría')
     if (lat == null || lon == null) return setError('Mueve el mapa para marcar la ubicación')
 
@@ -75,6 +77,7 @@ export default function ReportForm({ lat, lon, onClose, onSuccess }) {
           descripcion: descripcion.trim() || null,
           foto_url,
           email_ciudadano: email.trim() || null,
+          nombre_ciudadano: nombre.trim(),
         }),
       })
       const data = await res.json().catch(() => null)
@@ -95,6 +98,7 @@ export default function ReportForm({ lat, lon, onClose, onSuccess }) {
   function reiniciar() {
     setResultado(null)
     setCategoriaId('')
+    setNombre('')
     setDescripcion('')
     setEmail('')
     setFoto(null)
@@ -136,6 +140,20 @@ export default function ReportForm({ lat, lon, onClose, onSuccess }) {
         <p className="report-form__meta">
           Ubicación: {lat != null ? `${lat.toFixed(5)}, ${lon.toFixed(5)}` : 'mueve el mapa para elegirla'}
         </p>
+
+        <div className="mb-3">
+          <label className="form-label" htmlFor="rf-nombre">Nombre</label>
+          <input
+            id="rf-nombre"
+            className="form-control"
+            type="text"
+            autoComplete="name"
+            maxLength={100}
+            required
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+          />
+        </div>
 
         <fieldset className="categorias" disabled={ocupado}>
           <legend className="form-label">Tipo de problema</legend>

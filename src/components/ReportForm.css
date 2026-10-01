@@ -34,8 +34,9 @@
 .report-form__meta { margin: 4px 0 12px; font-size: 12px; color: #666; word-break: break-all; }
 .report-form__acciones { display: flex; gap: 8px; flex-wrap: wrap; }
 .report-form__acciones .btn { flex: 1 1 140px; }
-.report-form__foto { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
-.report-form__foto img { height: 90px; max-width: 60%; object-fit: cover; border-radius: 8px; }
+.report-form__foto { display: flex; flex-direction: column; align-items: stretch; gap: 8px; margin-top: 10px; }
+.report-form__foto img { width: 100%; max-height: 300px; object-fit: contain; background: var(--gob-gris-claro); border-radius: 8px; }
+.report-form__foto .btn { align-self: flex-end; }
 
 /* Campos y botones del kit, con tamaños uniformes */
 .report-form .form-label { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 600; color: var(--gob-gris-oscuro); }

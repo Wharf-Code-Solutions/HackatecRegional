@@ -57,12 +57,16 @@ npm run dev      # http://localhost:5173
 **Preview en Vercel:** el push genera una URL en Vercel → Deployments (o en el PR).
 
 **Checklist**
-- [ ] Las 7 categorías aparecen como radios con ícono (Baches, Alumbrado, Señalizaciones, Banquetas, Semáforos, Coladeras, Obstrucciones).
+- [ ] Las 7 categorías aparecen como radios con ícono (Baches, Alumbrado, Señalizaciones, Rampas, Semáforos, Coladeras, Obstrucciones).
 - [ ] "Tomar foto" abre la cámara en el celular.
 - [ ] Foto grande → se sube; la URL pública abre en el navegador.
 - [ ] En Network, el POST lleva `null` (no `""`) en campos vacíos.
 - [ ] Respuesta 200 con `incidencia_id`. Dos envíos a <10 m de la misma categoría → `agrupado: true`.
 - [ ] Probar en celular.
+
+## Cambios de BD recientes
+Ejecutar en orden en Supabase (SQL Editor), antes de desplegar: `db/003_nombre_y_rampas.sql` (columna `reportes.nombre_ciudadano`, parámetro `p_nombre` en `registrar_incidencia`, categoría "Rampas dañadas").
+El formulario envía `nombre_ciudadano` (obligatorio en la interfaz, opcional en BD).
 
 ## 6. Flujo de ramas
 - `main` = producción (Vercel). Solo entra código por PR.
