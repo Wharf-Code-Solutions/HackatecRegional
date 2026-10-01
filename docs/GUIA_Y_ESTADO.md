@@ -57,7 +57,7 @@ npm run dev      # http://localhost:5173
 **Preview en Vercel:** el push genera una URL en Vercel → Deployments (o en el PR).
 
 **Checklist**
-- [ ] Las categorías aparecen como 6 radios con ícono ("Otro" oculta).
+- [ ] Las 7 categorías aparecen como radios con ícono (Baches, Alumbrado, Señalizaciones, Banquetas, Semáforos, Coladeras, Obstrucciones).
 - [ ] "Tomar foto" abre la cámara en el celular.
 - [ ] Foto grande → se sube; la URL pública abre en el navegador.
 - [ ] En Network, el POST lleva `null` (no `""`) en campos vacíos.

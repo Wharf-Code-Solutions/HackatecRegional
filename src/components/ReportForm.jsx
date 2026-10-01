@@ -6,7 +6,6 @@ import './ReportForm.css'
 
 const TIPOS_FOTO = ['image/jpeg', 'image/png', 'image/webp']
 const MAX_FOTO_MB = 15 // límite de entrada; se comprime antes de subir (bucket: 5 MB)
-const SLUGS_OCULTOS = ['otro'] // siguen en la BD, solo no se ofrecen en el formulario
 
 // Props: lat / lon del marcador central (MapView ya entrega { lat, lon })
 export default function ReportForm({ lat, lon, onClose, onSuccess }) {
@@ -29,7 +28,7 @@ export default function ReportForm({ lat, lon, onClose, onSuccess }) {
       .order('id')
       .then(({ data, error }) => {
         if (error) setError('No se pudieron cargar las categorías')
-        else setCategorias((data ?? []).filter((c) => !SLUGS_OCULTOS.includes(c.slug)))
+        else setCategorias(data ?? [])
       })
   }, [])
 
