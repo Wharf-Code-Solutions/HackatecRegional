@@ -38,7 +38,7 @@ function textoDelPaso(clave, situacion, r) {
   return 'Pendiente.';
 }
 
-function Resultado({ r, onActualizar, onOtro }) {
+function Resultado({ r, onOtro }) {
   const zona = r.colonia
     ? `Col. ${r.colonia}${r.municipio ? `, ${r.municipio}` : ''}`
     : (r.municipio || 'No disponible');
@@ -82,7 +82,6 @@ function Resultado({ r, onActualizar, onOtro }) {
       </dl>
 
       <div className="rastreo-acciones">
-        <button type="button" className="btn btn-outline-secondary" onClick={onActualizar}>Actualizar estado</button>
         <button type="button" className="btn btn-outline-secondary" onClick={onOtro}>Buscar otro folio</button>
         <Link to="/" className="btn btn-primary">Hacer un nuevo reporte</Link>
       </div>
@@ -163,7 +162,7 @@ export default function Rastreo() {
       </div>
     );
   } else if (hayConsulta && respuesta.datos) {
-    contenido = <Resultado r={respuesta.datos} onActualizar={() => setTick((n) => n + 1)} onOtro={otroFolio} />;
+    contenido = <Resultado r={respuesta.datos} onOtro={otroFolio} />;
   }
 
   return (

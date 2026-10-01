@@ -37,7 +37,7 @@ export default function NavBar() {
         />
         <div className="navbar-divisor"></div>
         <span className="navbar-titulo">
-          Reportes Urbanos
+          SIGRIV
         </span>
       </div>
 
