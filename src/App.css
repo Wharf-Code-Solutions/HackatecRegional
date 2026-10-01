@@ -1,3 +1,8 @@
+/* Estructura de la app. 100vh incluye la barra de direcciones de los navegadores móviles y recorta lo de abajo
+   (botones al pie, "Volver al mapa"); 100dvh mide solo la parte visible. Primero el valor de respaldo. */
+.app-shell { width: 100vw; height: 100vh; height: 100dvh; overflow: hidden; }
+.app-main { position: relative; margin-top: 60px; height: calc(100vh - 60px); height: calc(100dvh - 60px); }
+
 .counter {
   font-size: 16px;
   padding: 5px 10px;

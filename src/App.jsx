@@ -46,10 +46,10 @@ function Cargando() {
 export default function App() {
   return (
     <BrowserRouter>
-      <div style={{ width: '100vw', height: '100vh', overflow: 'hidden' }}>
+      <div className="app-shell">
         <NavBar />
 
-        <main style={{ marginTop: '60px', height: 'calc(100vh - 60px)', position: 'relative' }}>
+        <main className="app-main">
           <Suspense fallback={<Cargando />}>
             <Routes>
               {/* Ruta Principal: App Ciudadana */}

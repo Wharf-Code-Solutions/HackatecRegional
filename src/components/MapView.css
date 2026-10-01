@@ -2,8 +2,8 @@
 
 .map-container {
   position: relative;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%; /* el alto lo da <main> (ya descontado el header y la barra del navegador móvil) */
 }
 
 /* El pin que siempre se queda en el centro */
@@ -34,7 +34,7 @@
 /* Botón flotante para generar reporte (Actualizado) */
 .btn-generar-reporte {
   position: absolute;
-  bottom: 120px; /* Más arriba, seguro para cualquier móvil */
+  bottom: 60px; /* sobre el logo/atribución de Mapbox; el contenedor ya mide solo lo visible */
   left: 50%;
   transform: translateX(-50%);
   background-color: var(--gob-guinda);
@@ -105,3 +105,9 @@
 .pin-publico-alta { background: var(--gob-guinda); }
 .pin-publico-media { background: var(--gob-dorado); }
 .pin-publico-baja { background: #98989a; }
+
+/* "Ubicarme" mientras espera al GPS */
+.btn-ubicarme:disabled { cursor: progress; opacity: 0.85; transform: none; }
+.btn-ubicarme__giro { width: 16px; height: 16px; border: 2px solid var(--gob-dorado); border-top-color: var(--gob-guinda); border-radius: 50%; animation: ubicarme-giro 0.7s linear infinite; }
+@keyframes ubicarme-giro { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .btn-ubicarme__giro { animation-duration: 2s; } }

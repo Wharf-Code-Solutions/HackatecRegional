@@ -9,6 +9,7 @@ import { getIncidencias, hace, folio, nivelPrioridad, coordenadas, textoColonia 
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const REFRESCO_MS = 30000;
+const ZOOM_PINES = 12; // por debajo (mapa alejado) se ocultan los pines para que se vea el mapa de calor
 
 // Mapa de calor: la intensidad de una zona crece con el número de reportes de sus incidencias
 const CAPA_CALOR = {
@@ -45,6 +46,7 @@ export default function Dashboard() {
   const [tick, setTick] = useState(0);
   const [aviso, setAviso] = useState(null); // { tipo, texto }
   const [calor, setCalor] = useState(true);
+  const [lejos, setLejos] = useState(false); // mapa alejado: se actualiza solo al cruzar el umbral, no en cada movimiento
 
   // Resultado asociado a la pestaña que lo pidió: "cargando" = aún no llega el de la pestaña actual
   const [datos, setDatos] = useState({ pestana: null, items: [], error: null });
@@ -221,6 +223,7 @@ export default function Dashboard() {
           mapboxAccessToken={MAPBOX_TOKEN}
           maxBounds={LIMITES_MEXICO}
           minZoom={ZOOM_MINIMO}
+          onMove={(e) => setLejos(e.viewState.zoom < ZOOM_PINES)}
           style={{ width: '100%', height: '100%' }}
         >
           {calor && (
@@ -228,7 +231,7 @@ export default function Dashboard() {
               <Layer {...CAPA_CALOR} />
             </Source>
           )}
-          {visibles.map((r) => (
+          {visibles.filter((r) => !(calor && lejos) || r.id === seleccionId).map((r) => (
             <Marker key={r.id} longitude={r.lon} latitude={r.lat} anchor="bottom">
               <button type="button" aria-label={`${r.categoria_nombre}, prioridad ${r.prioridad}`}
                 className={`marcador marcador-${nivelPrioridad(r.prioridad)}${r.id === seleccionId ? ' seleccionado' : ''}`}

@@ -1,14 +1,18 @@
-import { useState, useRef } from 'react';
+import { useCallback, useState, useRef } from 'react';
 import Map, { Marker } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import './MapView.css';
 import { LIMITES_MEXICO, ZOOM_MINIMO, dentroDeMexico } from '../lib/mexico';
+import Toast from './Toast';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 
 export default function MapView({ onLocationChange, onGenerarReporte, incidencias = [], onSeleccionarIncidencia }) {
   const mapRef = useRef();
-  
+  const [ubicando, setUbicando] = useState(false);
+  const [aviso, setAviso] = useState(null); // { tipo, texto }
+  const cerrarAviso = useCallback(() => setAviso(null), []);
+
   const [viewState, setViewState] = useState({
     longitude: -96.1342,
     latitude: 19.1734,
@@ -32,26 +36,42 @@ export default function MapView({ onLocationChange, onGenerarReporte, incidencia
     }
   };
 
-  // NUEVA FUNCIÓN: Leer GPS nativo del celular/PC
+  // GPS del dispositivo. Sin tiempo límite algunos navegadores esperan indefinidamente y el botón parece roto,
+  // así que: indicador de carga, límite de espera y un segundo intento con la otra precisión.
   const handleUbicarme = () => {
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition((position) => {
-        if (!dentroDeMexico(position.coords.latitude, position.coords.longitude)) {
-          alert("Tu ubicación está fuera de México. Esta plataforma solo recibe reportes dentro del país.");
-          return;
-        }
-        // Movemos el mapa a donde está parado el usuario con un zoom más cercano (16)
-        setViewState({
-          longitude: position.coords.longitude,
-          latitude: position.coords.latitude,
-          zoom: 16
-        });
-      }, () => {
-        alert("Por favor, permite el acceso a tu ubicación en tu navegador para usar esta función.");
-      });
-    } else {
-      alert("Tu dispositivo no soporta geolocalización.");
+    if (ubicando) return;
+    if (!('geolocation' in navigator)) {
+      setAviso({ tipo: 'danger', texto: 'Tu dispositivo no soporta geolocalización.' });
+      return;
     }
+    setAviso(null);
+    setUbicando(true);
+
+    const alExito = ({ coords }) => {
+      setUbicando(false);
+      if (!dentroDeMexico(coords.latitude, coords.longitude)) {
+        setAviso({ tipo: 'danger', texto: 'Tu ubicación está fuera de México. Esta plataforma solo recibe reportes dentro del país.' });
+        return;
+      }
+      // Movemos el mapa a donde está el usuario con un zoom más cercano (16)
+      setViewState({ longitude: coords.longitude, latitude: coords.latitude, zoom: 16 });
+    };
+
+    const alFallar = (error) => {
+      setUbicando(false);
+      const texto = error.code === 1
+        ? 'No tenemos permiso para ver tu ubicación. Actívalo en los ajustes del navegador y vuelve a intentarlo.'
+        : error.code === 3
+          ? 'Tu ubicación tardó demasiado en responder. Revisa que el GPS esté activo e inténtalo de nuevo.'
+          : 'No pudimos obtener tu ubicación. Revisa que el GPS esté activo e inténtalo de nuevo.';
+      setAviso({ tipo: 'danger', texto });
+    };
+
+    // 1.º ubicación aproximada (rápida, por red); si no responde, 2.º con GPS de alta precisión
+    navigator.geolocation.getCurrentPosition(alExito, (error) => {
+      if (error.code === 1) { alFallar(error); return; }
+      navigator.geolocation.getCurrentPosition(alExito, alFallar, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+    }, { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 });
   };
 
   return (
@@ -91,8 +111,8 @@ export default function MapView({ onLocationChange, onGenerarReporte, incidencia
       </div>
 
       {/* NUEVO: Botón Personalizado "Ubicarme" */}
-      <button className="btn-ubicarme" onClick={handleUbicarme}>
-        {/* Ícono de Mira/Ubicación en color Guinda oficial */}
+      <button className="btn-ubicarme" onClick={handleUbicarme} disabled={ubicando} aria-busy={ubicando}>
+        {ubicando ? <i className="btn-ubicarme__giro" aria-hidden="true" /> : (
         <svg 
           width="18" height="18" 
           viewBox="0 0 24 24" 
@@ -105,8 +125,11 @@ export default function MapView({ onLocationChange, onGenerarReporte, incidencia
           <circle cx="12" cy="12" r="3"></circle>
           <path d="M19 12h2M3 12h2M12 19v2M12 3v2"></path>
         </svg>
-        Ubicarme
+        )}
+        {ubicando ? 'Ubicando…' : 'Ubicarme'}
       </button>
+
+      <Toast aviso={aviso} onClose={cerrarAviso} />
 
       {/* Botón de Generar Reporte */}
       <button className="btn-generar-reporte" onClick={handleBotonClick}>
