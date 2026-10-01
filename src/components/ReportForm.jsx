@@ -55,8 +55,8 @@ export default function ReportForm({ lat, lon, onClose, onSuccess }) {
   async function enviar(e) {
     e.preventDefault()
     setError(null)
-    if (!nombre.trim()) return setError('Escribe tu nombre')
     if (!categoriaId) return setError('Elige una categoría')
+    if (!nombre.trim()) return setError('Escribe tu nombre')
     if (lat == null || lon == null) return setError('Mueve el mapa para marcar la ubicación')
 
     try {
@@ -141,20 +141,6 @@ export default function ReportForm({ lat, lon, onClose, onSuccess }) {
           Ubicación: {lat != null ? `${lat.toFixed(5)}, ${lon.toFixed(5)}` : 'mueve el mapa para elegirla'}
         </p>
 
-        <div className="mb-3">
-          <label className="form-label" htmlFor="rf-nombre">Nombre</label>
-          <input
-            id="rf-nombre"
-            className="form-control"
-            type="text"
-            autoComplete="name"
-            maxLength={100}
-            required
-            value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
-          />
-        </div>
-
         <fieldset className="categorias" disabled={ocupado}>
           <legend className="form-label">Tipo de problema</legend>
           <div className="categorias__grid">
@@ -211,6 +197,20 @@ export default function ReportForm({ lat, lon, onClose, onSuccess }) {
               </button>
             </div>
           )}
+        </div>
+
+        <div className="mb-3">
+          <label className="form-label" htmlFor="rf-nombre">Nombre</label>
+          <input
+            id="rf-nombre"
+            className="form-control"
+            type="text"
+            autoComplete="name"
+            maxLength={100}
+            required
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+          />
         </div>
 
         <div className="mb-3">
