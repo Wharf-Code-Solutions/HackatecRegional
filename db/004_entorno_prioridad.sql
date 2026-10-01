@@ -1,11 +1,21 @@
 -- =====================================================================
--- 004: score de entorno para ponderar la prioridad
+-- 004: prioridad ponderada por tipo de problema y por entorno
 --   prioridad = min(10, prioridad_base + (reportes_count - 1) + entorno_bonus)
--- entorno_bonus (0 a 4) lo calcula el backend a partir de lugares sensibles
--- cercanos (hospitales, escuelas, jardines de niños, etc.) y lo guarda con
--- aplicar_entorno(). Ejecutar UNA vez en Supabase > SQL Editor.
--- El backend tolera que este script aún no esté aplicado (el bonus se omite).
+-- * prioridad_base (por categoría): Semáforos 5 > Obstrucciones 4 > Baches 3 > resto 1
+-- * entorno_bonus (0 a 4): lo calcula el backend al crearse la incidencia, según lo que hay
+--   a 250 m (hospitales/clínicas, educación, parques, asistencia social), y lo guarda con
+--   aplicar_entorno(). La dirección se guarda en la columna `direccion` que ya existía.
+-- Ejecutar UNA vez en Supabase > SQL Editor. El backend tolera que aún no esté aplicado.
 -- =====================================================================
+
+-- 0) Orden de importancia de las categorías (es un dato, no cambia el esquema)
+update public.categorias
+   set prioridad_base = case slug
+         when 'semaforo'    then 5
+         when 'obstruccion' then 4
+         when 'bache'       then 3
+         else 1
+       end;
 
 -- 1) Columnas nuevas (las incidencias existentes quedan con bonus 0)
 alter table public.incidencias
@@ -150,3 +160,11 @@ left join lateral (
   order by r.created_at
   limit 1
 ) f on true;
+
+-- 5) Recalcula la prioridad de las incidencias abiertas con los nuevos valores base
+--    (las cerradas/rechazadas no se tocan). Se puede omitir si prefieres conservar las actuales.
+update public.incidencias i
+   set prioridad = least(10, c.prioridad_base + i.reportes_count - 1 + i.entorno_bonus)
+  from public.categorias c
+ where c.id = i.categoria_id
+   and i.estado in ('pendiente', 'en_proceso');

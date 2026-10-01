@@ -102,16 +102,22 @@ El formulario envía `nombre_ciudadano` (obligatorio en la interfaz, opcional en
 - La ubicación del reporte se valida contra un **contorno aproximado del país** (con margen de decenas de km en costa y frontera), en el formulario y en el backend (`MEXICO_POLIGONO` en `api/index.py`). Fuera de México responde 422. "Ubicarme" avisa si el GPS está en otro país.
 - Los dos contornos (JS y Python) deben mantenerse iguales. Es una aproximación: cerca de la frontera puede aceptar puntos a pocos km del otro lado.
 
-## Score de prioridad por entorno
-`prioridad = min(10, prioridad_base de la categoría + (reportes - 1) + bonus_entorno)`
-- **bonus_entorno (0 a 4)** según lo que haya a 250 m del reporte (Mapbox Tilequery, `poi_label`, mismo token público del mapa):
-  - Peso por tipo de lugar: Hospital 4 · Jardín de niños 4 · Guardería 4 · Clínica 3 · Escuela 3 · Bomberos 3 · Consultorio 2 · Universidad 2 · Policía 2 · Asistencia social 2 · Dentista/Farmacia/Palacio municipal/Biblioteca 1. Si el tipo no está pero su clase sí: médico 1, educativo 2.
-  - Factor por distancia: ≤50 m x1.0 · ≤100 m x0.8 · ≤150 m x0.6 · ≤200 m x0.4 · ≤250 m x0.25. Se toma el mejor candidato (peso x factor, redondeado).
-  - +1 si hay 3 o más lugares sensibles (peso ≥ 2) en el radio. Tope total: +4.
-- Se calcula **una sola vez**, al crear la incidencia (su ubicación no cambia); si Mapbox falla, el reporte queda con la prioridad base.
-- Requiere ejecutar `db/004_entorno_prioridad.sql` (columnas `entorno_bonus` y `entorno_detalle`, función `aplicar_entorno`, `registrar_incidencia` ponderada y vista con `prioridad_base`). Antes de ejecutarlo todo funciona igual, sin bonus.
-- Las incidencias anteriores quedan con bonus 0. El panel muestra el desglose (tipo + reportes + entorno) y los lugares cercanos.
-- Los pesos son una propuesta ajustable: están en `LUGARES_SENSIBLES` de `api/index.py`.
+## Prioridad ponderada (tipo de problema + entorno)
+`prioridad = min(10, prioridad_base de la categoría + (reportes − 1) + bonus_entorno)`
+
+- **Tipo de problema** (`categorias.prioridad_base`, es un dato): Semáforos 5 > Obstrucciones 4 > Baches 3 > el resto (alumbrado, señalización, coladeras, rampas) 1 cada una.
+- **Entorno** (`bonus_entorno`, 0 a 4): lugares a 250 m del reporte, solo estos grupos y en este orden de importancia: **Hospitales (4) > Educación (3: escuela, jardín de niños, guardería, universidad, colegio) > Parques y juegos infantiles (2) = Clínicas (2) > Asistencia social (1)**. Se toma el mejor lugar: `ceil(peso × factor)` con factor por distancia 50 m ×1.0 · 100 m ×0.8 · 150 m ×0.6 · 200 m ×0.4 · 250 m ×0.25. Cualquier lugar de esos grupos dentro del radio suma al menos +1; el tope es +4. No cuentan farmacias, hoteles, bancos, templos ni comercios.
+  | Lugar | 30 m | 80 m | 130 m | 180 m | 240 m |
+  | --- | --- | --- | --- | --- | --- |
+  | Hospital | +4 | +4 | +3 | +2 | +1 |
+  | Escuela / jardín / guardería | +3 | +3 | +2 | +2 | +1 |
+  | Parque / clínica | +2 | +2 | +2 | +1 | +1 |
+  | Asistencia social | +1 | +1 | +1 | +1 | +1 |
+- **Flujo:** al crearse una incidencia **nueva**, el backend consulta Mapbox en paralelo (≈0.5–0.9 s): geocodificación inversa → `incidencias.direccion` (columna que ya existía; el panel ya la muestra) y lugares cercanos (Tilequery) → bonus, guardado con `aplicar_entorno()`. Las incidencias agrupadas (≤ 10 m) no repiten la consulta. Si Mapbox falla, el reporte se crea igual.
+- **Costo:** 2 llamadas a Mapbox por reporte nuevo (no por listado ni por funcionario). Mapbox limita el ritmo (se observó 429 con ~150 consultas seguidas); el volumen normal no lo alcanza y un 429 solo omite dirección y bonus.
+- Requiere ejecutar `db/004_entorno_prioridad.sql` (valores base por categoría, columnas `entorno_bonus` y `entorno_detalle`, `aplicar_entorno`, `registrar_incidencia` ponderada, vista con `prioridad_base` y recálculo de las incidencias abiertas). **Antes de ejecutarlo todo funciona igual**: se guarda la dirección y no hay bonus.
+- El panel muestra el desglose (tipo + reportes + entorno) y los lugares cercanos, y la dirección en cada tarjeta.
+- Los pesos están en `LUGARES_SENSIBLES` de `api/index.py` y son ajustables. Límite conocido: Mapbox etiqueta como "Clínica" también a laboratorios y consultorios.
 
 ## 6. Flujo de ramas
 - `main` = producción (Vercel). Solo entra código por PR.
