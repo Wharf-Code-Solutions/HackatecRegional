@@ -83,7 +83,7 @@ export default function ReportForm({ lat, lon, onClose, onSuccess }) {
       const data = await res.json().catch(() => null)
       if (!res.ok) {
         const detalle = typeof data?.detail === 'string' ? data.detail : 'Datos inválidos'
-        throw new Error(res.status >= 500 ? 'Error del servidor, intenta de nuevo' : detalle)
+        throw new Error(res.status >= 500 && res.status !== 503 ? 'Error del servidor, intenta de nuevo' : detalle)
       }
 
       setResultado(data)

@@ -3,6 +3,7 @@ import time
 from collections import defaultdict
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, EmailStr, field_validator
 from typing import Optional
 from uuid import UUID
@@ -35,16 +36,35 @@ app.add_middleware(
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 
-if not SUPABASE_URL or not SUPABASE_KEY:
-    raise RuntimeError("Faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en el .env")
+# Variables que faltan. Si no están, la API NO se cae al arrancar (en Vercel eso da un
+# 500 FUNCTION_INVOCATION_FAILED sin explicación): arranca y responde 503 con el detalle.
+VARIABLES_FALTANTES = [
+    nombre for nombre, valor in (
+        ("SUPABASE_URL", SUPABASE_URL),
+        ("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY),
+    ) if not valor
+]
 
-# HTTP/1.1: con HTTP/2 y un cliente compartido, dos peticiones simultáneas
-# (p. ej. lista + detalle del panel) provocan ConnectionTerminated.
-supabase: Client = create_client(
-    SUPABASE_URL,
-    SUPABASE_KEY,
-    options=ClientOptions(httpx_client=httpx.Client(http2=False, timeout=30)),
-)
+supabase: Optional[Client] = None
+if not VARIABLES_FALTANTES:
+    # HTTP/1.1: con HTTP/2 y un cliente compartido, dos peticiones simultáneas
+    # (p. ej. lista + detalle del panel) provocan ConnectionTerminated.
+    supabase = create_client(
+        SUPABASE_URL,
+        SUPABASE_KEY,
+        options=ClientOptions(httpx_client=httpx.Client(http2=False, timeout=30)),
+    )
+
+
+@app.middleware("http")
+async def exigir_base_de_datos(request: Request, call_next):
+    """Sin credenciales de Supabase solo responde /api/health; el resto devuelve 503 claro."""
+    if supabase is None and request.url.path != "/api/health":
+        return JSONResponse(
+            status_code=503,
+            content={"detail": f"Falta configurar en el servidor: {', '.join(VARIABLES_FALTANTES)}"},
+        )
+    return await call_next(request)
 
 # ─────────────────────────────────────────────
 # RATE LIMIT ANTI-SPAM (Fase 4)
@@ -134,7 +154,11 @@ class RechazarIncidencia(BaseModel):
 
 @app.get("/api/health", tags=["Sistema"])
 def health_check():
-    return {"status": "online", "db_connected": bool(SUPABASE_URL)}
+    return {
+        "status": "online",
+        "db_connected": supabase is not None,
+        "faltan_variables": VARIABLES_FALTANTES,
+    }
 
 
 @app.get("/api/categorias", tags=["Ciudadano"])

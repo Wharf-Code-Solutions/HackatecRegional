@@ -13,7 +13,7 @@ async function request(ruta, opciones = {}) {
 
   const data = await res.json().catch(() => null)
   if (!res.ok) {
-    if (res.status >= 500) throw new Error('Error del servidor, intenta de nuevo')
+    if (res.status >= 500 && res.status !== 503) throw new Error('Error del servidor, intenta de nuevo')
     throw new Error(typeof data?.detail === 'string' ? data.detail : 'Datos inválidos')
   }
   return data
