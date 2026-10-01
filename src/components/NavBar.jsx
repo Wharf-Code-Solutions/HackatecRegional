@@ -1,4 +1,5 @@
 // src/components/shared/NavBar.jsx
+import { Link } from 'react-router-dom';
 import './NavBar.css';
 
 export default function NavBar() {
@@ -16,11 +17,13 @@ export default function NavBar() {
         </span>
       </div>
 
-      {/* Sección Derecha: Solo el rastreo ciudadano */}
       <nav className="navbar-links">
-        <a href="/rastreo" title="Consulta el estado de tu reporte">
+        <Link to="/admin" title="Acceso para funcionarios">
+          Panel Funcionario
+        </Link>
+        <Link to="/rastreo" title="Consulta el estado de tu reporte">
           Rastreo de Reportes
-        </a>
+        </Link>
       </nav>
     </header>
   );

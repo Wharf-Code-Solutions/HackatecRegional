@@ -1,0 +1,239 @@
+/* src/components/admin/Dashboard.css */
+
+.dashboard-container {
+  display: flex;
+  height: calc(100vh - 60px); /* Ocupa toda la pantalla debajo del Navbar */
+  width: 100vw;
+  overflow: hidden;
+  font-family: var(--font-gob);
+  background-color: #F4F4F4;
+}
+
+/* =========================================
+   PANEL LATERAL (SIDEBAR)
+========================================= */
+.dashboard-sidebar {
+  width: 420px;
+  background-color: white;
+  border-right: 1px solid #E0E0E0;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 2px 0 8px rgba(0,0,0,0.05);
+  z-index: 10;
+}
+
+.sidebar-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #E0E0E0;
+}
+
+.sidebar-header h2 {
+  margin: 0;
+  color: var(--gob-gris-oscuro);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.sidebar-header p {
+  margin: 4px 0 16px 0;
+  color: #666;
+  font-size: 13px;
+}
+
+.badge-total {
+  background-color: var(--gob-guinda);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+/* Barras de progreso de sectores */
+.sector-progress {
+  margin-bottom: 12px;
+}
+
+.sector-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: var(--gob-gris-oscuro);
+}
+
+.sector-info span.porcentaje-critico { color: var(--gob-guinda); }
+.sector-info span.porcentaje-medio { color: #D4A373; }
+
+.progress-bar-bg {
+  height: 6px;
+  background-color: #EEEEEE;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+}
+.fill-critico { background-color: var(--gob-guinda); width: 80%; }
+.fill-medio { background-color: var(--gob-dorado); width: 55%; }
+
+/* Filtros (Píldoras) */
+.sidebar-filters {
+  padding: 16px 24px;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  border-bottom: 1px solid #E0E0E0;
+}
+
+.filter-chip {
+  padding: 6px 16px;
+  border: 1px solid #CCC;
+  border-radius: 16px;
+  background: white;
+  font-size: 13px;
+  font-family: var(--font-gob);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.filter-chip.active {
+  background: var(--gob-guinda);
+  color: white;
+  border-color: var(--gob-guinda);
+  font-weight: 600;
+}
+
+/* Lista de Tarjetas de Reporte */
+.sidebar-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 24px;
+  background-color: #F9F9F9;
+}
+
+.report-card {
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  border-left: 4px solid var(--gob-gris-oscuro); /* Default */
+  position: relative;
+}
+
+.report-card.prioridad-alta { border-left-color: var(--gob-guinda); }
+.report-card.prioridad-media { border-left-color: var(--gob-dorado); }
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 15px;
+  color: var(--gob-gris-oscuro);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-time {
+  font-size: 12px;
+  color: #888;
+}
+
+.card-location {
+  font-size: 13px;
+  color: #555;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tag-agrupado {
+  background-color: #FDE8EC;
+  color: var(--gob-guinda);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tag-normal {
+  background-color: #E8F0FE;
+  color: #1A73E8;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.card-id {
+  font-weight: 700;
+  color: #1A73E8;
+  font-size: 13px;
+}
+
+.btn-asignar {
+  background-color: #E8EAF6;
+  color: #283593;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* =========================================
+   ÁREA DEL MAPA
+========================================= */
+.dashboard-map-area {
+  flex: 1;
+  position: relative;
+}
+
+.map-toolbar-top {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.toolbar-panel {
+  background: white;
+  padding: 8px 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
