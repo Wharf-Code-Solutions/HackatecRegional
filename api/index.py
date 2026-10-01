@@ -116,7 +116,7 @@ SMTP_PORT = int(os.environ.get("SMTP_PORT", "465"))
 SMTP_USER = os.environ.get("SMTP_USER")
 # Las contraseñas de aplicación de Google se muestran con espacios ("abcd efgh ..."); se usan sin ellos
 SMTP_PASSWORD = (os.environ.get("SMTP_PASSWORD") or "").replace(" ", "")
-MAIL_FROM_NAME = os.environ.get("MAIL_FROM_NAME", "Reportes Urbanos")
+MAIL_FROM_NAME = os.environ.get("MAIL_FROM_NAME", "SIGRIV")
 # URL pública de la app para el enlace de seguimiento de los correos
 APP_URL = os.environ.get("APP_URL", "https://hackatec-regional.vercel.app").rstrip("/")
 MAX_DESTINATARIOS = 50
@@ -204,8 +204,7 @@ def construir_correo(etapa: str, nombre: Optional[str], incidencia_id: str, cate
 
         <!-- Firma -->
         <p style="margin:0; font-size:12px; color:#777777;">
-          Atentamente,<br>
-          Ayuntamiento Municipal - Plataforma Hackatec
+          Sistema de Gestión de Reportes de Infraestructura Vial
         </p>
       </div>
     </div>
@@ -219,7 +218,7 @@ def construir_correo(etapa: str, nombre: Optional[str], incidencia_id: str, cate
         + f"Folio de seguimiento: {folio}\n"
         f"Consulta el estado de tu reporte: {seguimiento}\n\n"
         "Gracias por ayudar a construir una mejor ciudad.\n\n"
-        "Atentamente,\nAyuntamiento Municipal - Plataforma Hackatec\n"
+        "Sistema de Gestión de Reportes de Infraestructura Vial\n"
     )
     return asunto, cuerpo, texto
 
