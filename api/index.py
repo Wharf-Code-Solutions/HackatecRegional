@@ -5,7 +5,9 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, EmailStr, field_validator
 from typing import Optional
-from supabase import create_client, Client
+from uuid import UUID
+import httpx
+from supabase import create_client, Client, ClientOptions
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -36,7 +38,13 @@ SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise RuntimeError("Faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en el .env")
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# HTTP/1.1: con HTTP/2 y un cliente compartido, dos peticiones simultáneas
+# (p. ej. lista + detalle del panel) provocan ConnectionTerminated.
+supabase: Client = create_client(
+    SUPABASE_URL,
+    SUPABASE_KEY,
+    options=ClientOptions(httpx_client=httpx.Client(http2=False, timeout=30)),
+)
 
 # ─────────────────────────────────────────────
 # RATE LIMIT ANTI-SPAM (Fase 4)
@@ -72,6 +80,14 @@ def enviar_correos_resolucion(incidencia_id: str, correos: list) -> None:
         )
 
 
+def enmascarar_correo(email: Optional[str]) -> Optional[str]:
+    """ju***@gmail.com: el panel no necesita ver el correo completo."""
+    if not email or "@" not in email:
+        return None
+    usuario, dominio = email.split("@", 1)
+    return f"{usuario[:2]}***@{dominio}"
+
+
 # ─────────────────────────────────────────────
 # MODELOS PYDANTIC
 # ─────────────────────────────────────────────
@@ -94,6 +110,10 @@ class ReporteNuevo(BaseModel):
 class ResolverIncidencia(BaseModel):
     incidencia_id:  str           = Field(..., description="UUID de la incidencia")
     funcionario_id: Optional[str] = Field(None, description="UUID del funcionario")
+
+
+class CambioEstado(BaseModel):
+    incidencia_id: UUID = Field(..., description="UUID de la incidencia")
 
 
 class RechazarIncidencia(BaseModel):
@@ -179,6 +199,74 @@ def obtener_incidencias(estado: Optional[str] = None):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/admin/incidencias/{incidencia_id}", tags=["Admin"])
+def obtener_detalle_incidencia(incidencia_id: UUID):
+    """Detalle de una incidencia: fila de la vista + reportes individuales (correo enmascarado)."""
+    try:
+        inc = (
+            supabase.table("v_incidencias_admin")
+            .select("*")
+            .eq("id", str(incidencia_id))
+            .execute()
+        )
+        if not inc.data:
+            raise HTTPException(status_code=404, detail="Incidencia no encontrada.")
+        reps = (
+            supabase.table("reportes")
+            .select("id, nombre_ciudadano, descripcion, foto_url, email_ciudadano, created_at")
+            .eq("incidencia_id", str(incidencia_id))
+            .order("created_at", desc=False)
+            .execute()
+        )
+        reportes = [
+            {
+                "id":               r["id"],
+                "nombre_ciudadano": r.get("nombre_ciudadano"),
+                "descripcion":      r.get("descripcion"),
+                "foto_url":         r.get("foto_url"),
+                "email":            enmascarar_correo(r.get("email_ciudadano")),
+                "created_at":       r["created_at"],
+            }
+            for r in reps.data
+        ]
+        return {**inc.data[0], "reportes": reportes}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"ERROR GET /incidencias/id: {e}")
+        raise HTTPException(status_code=500, detail="Error interno al obtener la incidencia.")
+
+
+def _cambiar_estado(incidencia_id: UUID, desde: str, hacia: str, mensaje: str):
+    """Único update directo permitido por la guía de BD: pendiente→en_proceso y rechazada→pendiente."""
+    try:
+        res = (
+            supabase.table("incidencias")
+            .update({"estado": hacia})
+            .eq("id", str(incidencia_id))
+            .eq("estado", desde)
+            .execute()
+        )
+    except Exception as e:
+        print(f"ERROR cambio de estado {desde}->{hacia}: {e}")
+        raise HTTPException(status_code=500, detail="Error interno al cambiar el estado.")
+    if not res.data:
+        raise HTTPException(status_code=409, detail=f"La incidencia no existe o no está en estado '{desde}'.")
+    return {"mensaje": mensaje, "estado": hacia}
+
+
+@app.patch("/api/admin/en-proceso", tags=["Admin"])
+def marcar_en_proceso(payload: CambioEstado):
+    """pendiente → en_proceso (una cuadrilla ya la atiende)."""
+    return _cambiar_estado(payload.incidencia_id, "pendiente", "en_proceso", "Incidencia marcada en proceso.")
+
+
+@app.patch("/api/admin/restaurar", tags=["Admin"])
+def restaurar_incidencia(payload: CambioEstado):
+    """rechazada → pendiente (el trigger de la BD limpia el motivo)."""
+    return _cambiar_estado(payload.incidencia_id, "rechazada", "pendiente", "Incidencia restaurada.")
 
 
 @app.patch("/api/admin/resolver", tags=["Admin"])

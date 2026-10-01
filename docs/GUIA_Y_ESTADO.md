@@ -68,6 +68,16 @@ npm run dev      # http://localhost:5173
 Ejecutar en orden en Supabase (SQL Editor), antes de desplegar: `db/003_nombre_y_rampas.sql` (columna `reportes.nombre_ciudadano`, parámetro `p_nombre` en `registrar_incidencia`, categoría "Rampas dañadas").
 El formulario envía `nombre_ciudadano` (obligatorio en la interfaz, opcional en BD).
 
+## Panel de funcionarios (`/admin`)
+- Rutas: `/` = ciudadano (mapa + formulario), `/admin` = panel (react-router, `vercel.json` ya redirige a `index.html`).
+- Pestañas Activas / Atendidas / Rechazadas, filtros (Urgentes = prioridad ≥ 7, por categoría), marcadores en el mapa, actualización cada 30 s.
+- Detalle: foto, coordenadas, fecha (hora de México), estado en 3 pasos, reportes vinculados (nombre, correo enmascarado, descripción).
+- Acciones: Marcar en proceso, Resolver (avisa a los correos; envío simulado), Rechazar (motivo opcional), Restaurar.
+- Endpoints: `GET /api/admin/incidencias[?estado=]`, `GET /api/admin/incidencias/{id}`, `PATCH /api/admin/{en-proceso|resolver|rechazar|restaurar}`.
+- **Pendiente de seguridad:** el panel y los PATCH no piden login; cualquiera con la URL puede operar. Siguiente paso: Supabase Auth + validar el token en el backend (y registrar `atendida_por`/`moderada_por`).
+- Backend: el cliente de Supabase usa HTTP/1.1 (`httpx.Client(http2=False)`); con HTTP/2 las peticiones simultáneas fallaban con `ConnectionTerminated`.
+- Local: `API_TARGET=http://localhost:8000` en `.env` apunta el proxy de Vite a un FastAPI local (`uvicorn index:app --port 8000` dentro de `api/`).
+
 ## 6. Flujo de ramas
 - `main` = producción (Vercel). Solo entra código por PR.
 - `feat/*` = una rama por módulo, creada desde `main` actualizado. Cada push genera un preview en Vercel.
@@ -82,7 +92,7 @@ El formulario envía `nombre_ciudadano` (obligatorio en la interfaz, opcional en
 | 1 | `ReportForm.jsx` + subida de foto | 2 | **Hecho** (categorías como radios con ícono, cámara, compresión, Storage, kit gob.mx) |
 | 1 | `POST /api/reportes` | 3 | Código en `main`; **el despliegue falla**: `/api/health` da `db_connected: false` y el POST responde `name 'supabase' is not defined` |
 | 2 | Integración mapa + formulario | 1-2 | **Hecho** en `feat/ciudadano-integracion` (pendiente PR y prueba en Vercel) |
-| 3 | Dashboard, HeatMap, `/api/admin` | 1-2-3 | Pendiente |
+| 3 | Panel de funcionarios (`/admin`) + `/api/admin` | 1-2-3 | **Hecho** en `feat/admin` (lista, detalle, en proceso, resolver, rechazar, restaurar). Pendiente: HeatMap |
 | 4 | Pulido, geocodificación, casos límite | 1-2-3 | Pendiente |
 
 ## 8. Qué sigue

@@ -1,144 +1,229 @@
-import { useState, useEffect } from 'react';
-import Map from 'react-map-gl';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import Map, { Marker } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import './Dashboard.css';
-import IncidentDetails from './IncidentDetails'; // 1. Importamos el panel
+import IncidentDetails from './IncidentDetails';
+import { getIncidencias, hace, folio, nivelPrioridad, coordenadas } from '../lib/api';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
+const REFRESCO_MS = 30000;
+
+const PESTANAS = [
+  { id: 'activas', etiqueta: 'Activas', estado: undefined },
+  { id: 'atendida', etiqueta: 'Atendidas', estado: 'atendida' },
+  { id: 'rechazada', etiqueta: 'Rechazadas', estado: 'rechazada' },
+];
 
 export default function Dashboard() {
-  const [viewState, setViewState] = useState({
-    longitude: -96.1342,
-    latitude: 19.1734,
-    zoom: 13
-  });
+  const mapRef = useRef(null);
+  const [pestana, setPestana] = useState('activas');
+  const [filtro, setFiltro] = useState('todos'); // todos | urgentes | slug de categoría
+  const [vista, setVista] = useState('lista'); // lista | mapa (solo en pantallas chicas)
+  const [seleccionId, setSeleccionId] = useState(null);
+  const [tick, setTick] = useState(0);
+  const [aviso, setAviso] = useState(null); // { tipo, texto }
 
-  // 2. Estado para controlar qué panel está abierto
-  const [reporteSeleccionado, setReporteSeleccionado] = useState(null);
-
-  const [reportes, setReportes] = useState([
-    { 
-      id: '045', 
-      titulo: 'Bache Profundo', 
-      ubicacion: 'Col. Centro, Av. Hidalgo #402', 
-      tiempo: 'Hace 12 min', 
-      etiqueta: 'Agrupado: 4 reportes', 
-      tipoEtiqueta: 'critico', 
-      prioridad: 'alta' 
-    }
-  ]);
-
-  const [estadisticas, setEstadisticas] = useState({
-    totalActivas: 1,
-    sectores: [
-      { id: 1, nombre: 'Sector 01 - Centro', cantidad: 1, porcentaje: 100, tipo: 'critico' }
-    ]
-  });
+  // Resultado asociado a la pestaña que lo pidió: "cargando" = aún no llega el de la pestaña actual
+  const [datos, setDatos] = useState({ pestana: null, items: [], error: null });
+  const cargando = datos.pestana !== pestana;
 
   useEffect(() => {
-    // Aquí irá el fetch a FastAPI en el futuro
+    let vigente = true;
+    const estado = PESTANAS.find((p) => p.id === pestana).estado;
+    getIncidencias(estado)
+      .then((items) => vigente && setDatos({ pestana, items, error: null }))
+      .catch((e) => vigente && setDatos({ pestana, items: [], error: e.message }));
+    return () => { vigente = false; };
+  }, [pestana, tick]);
+
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), REFRESCO_MS);
+    return () => clearInterval(t);
   }, []);
+
+  // El mapa estaba oculto (display:none) en la vista Lista: hay que recalcular su tamaño
+  useEffect(() => {
+    const t = setTimeout(() => mapRef.current?.resize(), 50);
+    return () => clearTimeout(t);
+  }, [vista]);
+
+  const items = datos.items;
+
+  const categorias = useMemo(() => {
+    const mapa = {};
+    items.forEach((i) => {
+      mapa[i.categoria] ??= { slug: i.categoria, nombre: i.categoria_nombre, cantidad: 0 };
+      mapa[i.categoria].cantidad += 1;
+    });
+    return Object.values(mapa).sort((a, b) => b.cantidad - a.cantidad);
+  }, [items]);
+
+  const urgentes = items.filter((i) => nivelPrioridad(i.prioridad) === 'alta').length;
+
+  const visibles = items.filter((i) => {
+    if (filtro === 'todos') return true;
+    if (filtro === 'urgentes') return nivelPrioridad(i.prioridad) === 'alta';
+    return i.categoria === filtro;
+  });
+
+  function cambiarPestana(id) {
+    setPestana(id);
+    setFiltro('todos');
+    setSeleccionId(null);
+  }
+
+  function seleccionar(incidencia) {
+    setSeleccionId(incidencia.id);
+    mapRef.current?.flyTo({ center: [incidencia.lon, incidencia.lat], zoom: 16, duration: 800 });
+  }
+
+  function alCambiar(texto, tipo = 'success') {
+    setAviso({ tipo, texto });
+    setTick((n) => n + 1);
+  }
+
+  const seleccionado = items.find((i) => i.id === seleccionId) ?? null;
 
   return (
     <div className="dashboard-container">
-      
-      {/* PANEL LATERAL IZQUIERDO */}
-      <aside className="dashboard-sidebar">
+      <div className="dashboard-vista" role="tablist" aria-label="Vista">
+        <button type="button" role="tab" aria-selected={vista === 'lista'}
+          className={vista === 'lista' ? 'activa' : ''} onClick={() => setVista('lista')}>Lista</button>
+        <button type="button" role="tab" aria-selected={vista === 'mapa'}
+          className={vista === 'mapa' ? 'activa' : ''} onClick={() => setVista('mapa')}>Mapa</button>
+      </div>
+
+      {/* PANEL LATERAL */}
+      <aside className={`dashboard-sidebar${vista === 'mapa' ? ' oculto-movil' : ''}`}>
         <div className="sidebar-header">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div className="sidebar-titulo">
             <div>
-              <h2>Zonas Críticas</h2>
-              <p>Saturación en tiempo real por cuadrante</p>
+              <h2>Reportes ciudadanos</h2>
+              <p>Incidencias registradas en la plataforma</p>
             </div>
-            <div className="badge-total">{estadisticas.totalActivas} Incidencias activas</div>
+            <div className="badge-total">{items.length} {pestana === 'activas' ? 'activas' : 'en esta lista'}</div>
           </div>
 
-          {estadisticas.sectores.map(sector => (
-            <div key={sector.id} className="sector-progress">
-              <div className="sector-info">
-                <span>{sector.nombre}</span>
-                <span className={`porcentaje-${sector.tipo}`}>
-                  {sector.cantidad} incidencias ({sector.porcentaje}%)
-                </span>
+          <div className="pestanas" role="tablist">
+            {PESTANAS.map((p) => (
+              <button key={p.id} type="button" role="tab" aria-selected={pestana === p.id}
+                className={pestana === p.id ? 'activa' : ''} onClick={() => cambiarPestana(p.id)}>
+                {p.etiqueta}
+              </button>
+            ))}
+          </div>
+
+          {categorias.slice(0, 5).map((c) => {
+            const porcentaje = Math.round((c.cantidad / items.length) * 100);
+            return (
+              <div key={c.slug} className="sector-progress">
+                <div className="sector-info">
+                  <span>{c.nombre}</span>
+                  <span>{c.cantidad} ({porcentaje}%)</span>
+                </div>
+                <div className="progress-bar-bg">
+                  <div className="progress-bar-fill" style={{ width: `${porcentaje}%` }}></div>
+                </div>
               </div>
-              <div className="progress-bar-bg">
-                <div 
-                  className={`progress-bar-fill fill-${sector.tipo}`} 
-                  style={{ width: `${sector.porcentaje}%` }}
-                ></div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <div className="sidebar-filters">
-          <button className="filter-chip active">Todos ({reportes.length})</button>
-          <button className="filter-chip" style={{color: 'var(--gob-guinda)'}}>● Urgentes</button>
-          <button className="filter-chip">Baches</button>
+          <button type="button" className={`filter-chip${filtro === 'todos' ? ' active' : ''}`}
+            onClick={() => setFiltro('todos')}>Todos ({items.length})</button>
+          <button type="button" className={`filter-chip${filtro === 'urgentes' ? ' active' : ''}`}
+            onClick={() => setFiltro('urgentes')}>Urgentes ({urgentes})</button>
+          {categorias.map((c) => (
+            <button key={c.slug} type="button" className={`filter-chip${filtro === c.slug ? ' active' : ''}`}
+              onClick={() => setFiltro(c.slug)}>{c.nombre}</button>
+          ))}
+          <button type="button" className="filter-chip filter-actualizar" onClick={() => setTick((n) => n + 1)}>
+            Actualizar
+          </button>
         </div>
 
+        {aviso && (
+          <div className={`alert alert-${aviso.tipo} alerta-panel`} role="status">
+            {aviso.texto}
+            <button type="button" className="alerta-cerrar" onClick={() => setAviso(null)} aria-label="Cerrar aviso">×</button>
+          </div>
+        )}
+
         <div className="sidebar-list">
-          {reportes.length === 0 ? (
-            <p style={{ textAlign: 'center', color: '#888', marginTop: '20px' }}>No hay reportes activos.</p>
+          {cargando ? (
+            <p className="lista-vacia">Cargando reportes…</p>
+          ) : datos.error ? (
+            <div className="alert alert-danger" role="alert">
+              {datos.error}{' '}
+              <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setTick((n) => n + 1)}>
+                Reintentar
+              </button>
+            </div>
+          ) : visibles.length === 0 ? (
+            <p className="lista-vacia">No hay reportes en esta lista.</p>
           ) : (
-            reportes.map(reporte => (
-              <div key={reporte.id} className={`report-card prioridad-${reporte.prioridad}`}>
-                <div className="card-header">
-                  <h3>
-                    <span style={{ color: reporte.prioridad === 'alta' ? 'var(--gob-guinda)' : 'var(--gob-dorado)' }}>●</span>
-                    {reporte.titulo}
-                  </h3>
-                  <span className="card-time">{reporte.tiempo}</span>
-                </div>
-                <div className="card-location">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                  {reporte.ubicacion}
-                </div>
-                <div className="card-footer">
-                  <span className={reporte.tipoEtiqueta === 'critico' ? 'tag-agrupado' : 'tag-normal'}>
-                    {reporte.etiqueta}
-                  </span>
-                  <div className="card-actions">
-                    <span className="card-id">#{reporte.id}</span>
-                    {/* 3. El botón ahora dice "Ver" y abre el panel */}
-                    <button 
-                      className="btn-asignar"
-                      onClick={() => setReporteSeleccionado(reporte)}
-                    >
-                      Ver
-                    </button>
+            visibles.map((r) => {
+              const nivel = nivelPrioridad(r.prioridad);
+              return (
+                <div key={r.id} className={`report-card prioridad-${nivel}${r.id === seleccionId ? ' seleccionada' : ''}`}>
+                  <div className="card-header">
+                    <h3>
+                      <span className={`punto punto-${nivel}`}>●</span>
+                      {r.categoria_nombre}
+                    </h3>
+                    <span className="card-time">{hace(r.created_at)}</span>
+                  </div>
+                  <div className="card-location">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle>
+                    </svg>
+                    {r.direccion || coordenadas(r)}
+                  </div>
+                  <div className="card-footer">
+                    <span className={r.reportes_count > 1 ? 'tag-agrupado' : 'tag-normal'}>
+                      {r.reportes_count > 1 ? `Agrupado: ${r.reportes_count} reportes` : '1 reporte'}
+                      {r.estado === 'en_proceso' ? ' · En proceso' : ''}
+                    </span>
+                    <div className="card-actions">
+                      <span className="card-id">#{folio(r.id)}</span>
+                      <button type="button" className="btn-asignar" onClick={() => seleccionar(r)}>Ver</button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </aside>
 
-      {/* ÁREA DEL MAPA PRINCIPAL */}
-      <main className="dashboard-map-area">
-        <div className="map-toolbar-top">
-          <div className="toolbar-panel">
-            <span>🗺️ Plataforma Geospace Táctico</span>
-            <span style={{color: '#666'}}>{Math.abs(viewState.latitude).toFixed(4)}°N {Math.abs(viewState.longitude).toFixed(4)}°W</span>
-          </div>
-        </div>
-
+      {/* ÁREA DEL MAPA */}
+      <section className={`dashboard-map-area${vista === 'lista' ? ' oculto-movil' : ''}`}>
         <Map
-          {...viewState}
-          onMove={e => setViewState(e.viewState)}
+          ref={mapRef}
+          initialViewState={{ longitude: -96.1342, latitude: 19.1734, zoom: 13 }}
           mapStyle="mapbox://styles/mapbox/streets-v12"
           mapboxAccessToken={MAPBOX_TOKEN}
           style={{ width: '100%', height: '100%' }}
-        />
-        
-        {/* 4. Renderizamos el panel deslizable sobre el mapa */}
-        <IncidentDetails 
-          reporte={reporteSeleccionado} 
-          onClose={() => setReporteSeleccionado(null)} 
-        />
-      </main>
+        >
+          {visibles.map((r) => (
+            <Marker key={r.id} longitude={r.lon} latitude={r.lat} anchor="bottom">
+              <button type="button" aria-label={`${r.categoria_nombre}, prioridad ${r.prioridad}`}
+                className={`marcador marcador-${nivelPrioridad(r.prioridad)}${r.id === seleccionId ? ' seleccionado' : ''}`}
+                onClick={() => seleccionar(r)} />
+            </Marker>
+          ))}
+        </Map>
+      </section>
 
+      {seleccionId && (
+        <IncidentDetails
+          id={seleccionId}
+          resumen={seleccionado}
+          onClose={() => setSeleccionId(null)}
+          onCambio={alCambiar}
+        />
+      )}
     </div>
   );
 }

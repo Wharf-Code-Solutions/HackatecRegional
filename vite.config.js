@@ -4,7 +4,10 @@ import { defineConfig, loadEnv } from 'vite'
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   // Uso local: MOCK_API=1 en tu .env simula POST /api/reportes sin backend.
-  const mock = loadEnv(mode, '.', '').MOCK_API === '1'
+  const env = loadEnv(mode, '.', '')
+  const mock = env.MOCK_API === '1'
+  // API_TARGET=http://localhost:8000 en tu .env para usar un FastAPI local
+  const target = env.API_TARGET || 'https://hackatec-regional.vercel.app'
 
   return {
   plugins: [react()],
@@ -12,7 +15,7 @@ export default defineConfig(({ mode }) => {
     // En local no corre FastAPI: /api se manda al despliegue de Vercel.
     proxy: {
       '/api': {
-        target: 'https://hackatec-regional.vercel.app',
+        target,
         changeOrigin: true,
         bypass: mock
           ? (req, res) => {
