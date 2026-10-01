@@ -12,8 +12,10 @@ const sinAnimacion = () => window.matchMedia('(prefers-reduced-motion: reduce)')
  * Hoja inferior (móvil) / tarjeta lateral (escritorio).
  * - Entra y sale con animación; se cierra con Esc, tap en el fondo, botón ×
  *   o deslizando hacia abajo desde el asa/cabecera (el contenido solo hace scroll).
+ * - `bloqueante`: no se puede cerrar (solo el contenido decide cuándo desaparecer) y en escritorio
+ *   centra la tarjeta con fondo oscuro. El cuerpo no hace scroll: lo reparte el contenido.
  */
-export default function BottomSheet({ titulo, onClose, children }) {
+export default function BottomSheet({ titulo, onClose, bloqueante = false, children }) {
   const hojaRef = useRef(null);
   const fondoRef = useRef(null);
   const arrastre = useRef(null);
@@ -29,17 +31,17 @@ export default function BottomSheet({ titulo, onClose, children }) {
   useEffect(() => {
     const previo = document.activeElement;
     hojaRef.current?.focus({ preventScroll: true });
-    const alTeclear = (e) => { if (e.key === 'Escape') cerrar(); };
+    const alTeclear = (e) => { if (e.key === 'Escape' && !bloqueante) cerrar(); };
     document.addEventListener('keydown', alTeclear);
     return () => {
       document.removeEventListener('keydown', alTeclear);
       previo?.focus?.({ preventScroll: true });
     };
-  }, [cerrar]);
+  }, [cerrar, bloqueante]);
 
   // ---- Deslizar hacia abajo para cerrar (solo móvil) ----
   function alPulsar(e) {
-    if (esEscritorio() || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    if (bloqueante || esEscritorio() || (e.pointerType === 'mouse' && e.button !== 0)) return;
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* puntero sin captura: el arrastre sigue funcionando dentro del elemento */ }
     arrastre.current = { y0: e.clientY, t0: performance.now(), dy: 0 };
     hojaRef.current.style.transition = 'none';
@@ -84,12 +86,12 @@ export default function BottomSheet({ titulo, onClose, children }) {
   return (
     <div
       ref={fondoRef}
-      className={`sheet-fondo${cerrando ? ' is-cerrando' : ''}`}
-      onPointerDown={(e) => { if (e.target === e.currentTarget) cerrar(); }}
+      className={`sheet-fondo${cerrando ? ' is-cerrando' : ''}${bloqueante ? ' sheet-fondo--bloqueante' : ''}`}
+      onPointerDown={(e) => { if (!bloqueante && e.target === e.currentTarget) cerrar(); }}
     >
       <section
         ref={hojaRef}
-        className={`sheet${cerrando ? ' is-cerrando' : ''}`}
+        className={`sheet${cerrando ? ' is-cerrando' : ''}${bloqueante ? ' sheet--bloqueante' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-label={titulo}
@@ -105,15 +107,17 @@ export default function BottomSheet({ titulo, onClose, children }) {
           <span className="sheet__asa" aria-hidden="true" />
           <div className="sheet__titulo">
             <h2>{titulo}</h2>
-            <button
-              type="button"
-              className="sheet__cerrar"
-              onClick={cerrar}
-              onPointerDown={(e) => e.stopPropagation()}
-              aria-label="Cerrar"
-            >
-              ×
-            </button>
+            {!bloqueante && (
+              <button
+                type="button"
+                className="sheet__cerrar"
+                onClick={cerrar}
+                onPointerDown={(e) => e.stopPropagation()}
+                aria-label="Cerrar"
+              >
+                ×
+              </button>
+            )}
           </div>
         </div>
         <div className="sheet__cuerpo" onFocusCapture={alEnfocar}>

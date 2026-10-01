@@ -81,6 +81,15 @@
 }
 @keyframes sheet-lateral { from { transform: translateX(-24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
+/* Hoja bloqueante (términos): sin cierre ni arrastre; el contenido reparte el scroll */
+.sheet--bloqueante .sheet__asa { display: none; }
+.sheet--bloqueante .sheet__cabecera { cursor: default; padding-top: 14px; }
+.sheet--bloqueante .sheet__cuerpo { display: flex; flex-direction: column; overflow: hidden; }
+@media (min-width: 768px) {
+  .sheet-fondo--bloqueante { align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.55); pointer-events: auto; }
+  .sheet--bloqueante { width: 560px; max-height: calc(100% - 32px); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sheet-fondo, .sheet { animation: none; transition: none; }
 }

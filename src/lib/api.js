@@ -34,6 +34,10 @@ export const getEstadisticas = (params = {}) => {
   return request(`/api/admin/estadisticas${qs ? `?${qs}` : ''}`)
 }
 
+// Clasifica la foto con visión: { estado: 'ok'|'rechazada'|'no_disponible', categoria_slug, confianza, motivo }
+export const analizarFoto = (imagenB64) =>
+  request('/api/reportes/analizar-foto', { method: 'POST', body: JSON.stringify({ imagen_b64: imagenB64 }) })
+
 // Pines del mapa ciudadano: endpoint público, solo activas y sin datos personales
 export const getIncidenciasPublicas = () => request('/api/incidencias')
 

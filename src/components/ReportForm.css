@@ -110,3 +110,19 @@
 }
 
 .rf-folio__nota a { font-weight: 600; color: var(--gob-guinda); }
+
+/* Análisis de foto con IA: el tipo se rellena solo y el usuario puede cambiarlo */
+.rf-analisis { min-height: 0; margin-top: 8px; font-size: 13px; font-weight: 600; }
+.rf-analisis__texto { display: inline-flex; align-items: center; gap: 8px; color: var(--gob-verde); }
+.rf-analisis__aviso { color: #7a5b00; }
+.rf-analisis__giro { width: 14px; height: 14px; border: 2px solid var(--gob-dorado); border-top-color: transparent; border-radius: 50%; animation: rf-giro 0.7s linear infinite; }
+@keyframes rf-giro { to { transform: rotate(360deg); } }
+.categorias.is-analizando .categorias__grid { opacity: 0.55; transition: opacity 0.2s; }
+.rf-sugerido { margin: 0 0 8px; font-size: 12px; font-weight: 600; color: var(--gob-verde); }
+.categoria.is-sugerida { animation: rf-sugerida 0.9s ease-out; }
+@keyframes rf-sugerida { 0% { box-shadow: 0 0 0 0 rgba(188, 149, 92, 0.9); } 100% { box-shadow: 0 0 0 14px rgba(188, 149, 92, 0); } }
+.rf-conflicto { margin: 12px 0 0; }
+.rf-conflicto p { margin: 0 0 8px; }
+@media (prefers-reduced-motion: reduce) {
+  .rf-analisis__giro, .categoria.is-sugerida { animation: none; }
+}

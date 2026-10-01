@@ -8,6 +8,7 @@ const CiudadanoPage = lazy(() => import('./components/CiudadanoPage'));
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const DashboardInfo = lazy(() => import('./components/DashboardInfo'));
 const Rastreo = lazy(() => import('./components/Rastreo'));
+const Terminos = lazy(() => import('./components/Terminos'));
 
 function Cargando() {
   return (
@@ -32,6 +33,9 @@ export default function App() {
 
               {/* Ruta del ciudadano: Seguimiento de Reportes */}
               <Route path="/rastreo" element={<Rastreo />} />
+
+              {/* Términos y condiciones (consulta) */}
+              <Route path="/terminos" element={<Terminos />} />
 
               {/* Rutas del Funcionario: panel de incidencias y dashboard de información */}
               <Route path="/admin" element={<Dashboard />} />

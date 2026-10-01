@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase, variablesFaltantes } from '../lib/supabase'
-import { subirFoto } from '../lib/subirFoto'
-import { folio } from '../lib/api'
+import { reducirParaAnalizar, subirFoto } from '../lib/subirFoto'
+import { analizarFoto, folio } from '../lib/api'
 import {
   MAX_DESCRIPCION, MAX_NOMBRE, TIPOS_FOTO,
   validarFoto, validarFormulario,
@@ -12,7 +12,9 @@ import CategoriaIcono from './CategoriaIcono'
 import './ReportForm.css'
 
 // Orden en pantalla: el primer campo con error recibe el foco
-const ORDEN_CAMPOS = ['categoria', 'descripcion', 'foto', 'nombre', 'email', 'ubicacion']
+const ORDEN_CAMPOS = ['foto', 'categoria', 'descripcion', 'nombre', 'email', 'ubicacion']
+const CONFIANZA_ALTA = 0.6 // por debajo, la sugerencia de la foto no bloquea otra elección del usuario
+const SIN_ANALISIS = { estado: 'idle', slug: null, confianza: 0 } // idle | analizando | ok | no_disponible
 const ID_CAMPO = { categoria: 'rf-categoria', descripcion: 'rf-descripcion', foto: 'rf-foto', nombre: 'rf-nombre', email: 'rf-email' }
 
 async function copiarAlPortapapeles(texto) {
@@ -112,6 +114,9 @@ export default function ReportForm({ lat, lon, onClose, onSuccess }) {
   const [estado, setEstado] = useState('idle') // idle | subiendo | enviando
   const [errorEnvio, setErrorEnvio] = useState(null)
   const [resultado, setResultado] = useState(null)
+  const [analisis, setAnalisis] = useState(SIN_ANALISIS) // lo que el modelo vio en la foto
+  const [sugerida, setSugerida] = useState(false) // el tipo elegido vino de la foto
+  const idAnalisis = useRef(0) // descarta respuestas de fotos que ya se reemplazaron
   const inputCamara = useRef(null)
   const inputGaleria = useRef(null)
 
@@ -141,13 +146,62 @@ export default function ReportForm({ lat, lon, onClose, onSuccess }) {
     onBlur: () => tocar(campo),
   })
 
-  function elegirFoto(e) {
+  // Tipo que el modelo detectó con confianza suficiente para contradecir al usuario
+  const detectada = analisis.estado === 'ok' && analisis.confianza >= CONFIANZA_ALTA
+    ? categorias.find((c) => c.slug === analisis.slug)
+    : null
+  const conflicto = foto && detectada && categoriaId && String(detectada.id) !== categoriaId ? detectada : null
+  const analizando = analisis.estado === 'analizando'
+
+  function quitarFoto() {
+    idAnalisis.current += 1
+    setFoto(null)
+    setErrorFoto(null)
+    setAnalisis(SIN_ANALISIS)
+    setSugerida(false)
+  }
+
+  async function elegirFoto(e) {
     const archivo = e.target.files?.[0]
     e.target.value = '' // permite volver a elegir el mismo archivo
     if (!archivo) return
     const problema = validarFoto(archivo)
     setErrorFoto(problema)
-    if (!problema) setFoto(archivo)
+    if (problema) return
+
+    // Una sola llamada por foto: sugiere el tipo y verifica que sea un problema reportable
+    const id = ++idAnalisis.current
+    setFoto(archivo)
+    setAnalisis({ ...SIN_ANALISIS, estado: 'analizando' })
+    let veredicto
+    try {
+      veredicto = await analizarFoto(await reducirParaAnalizar(archivo))
+    } catch {
+      veredicto = { estado: 'no_disponible' } // si el análisis falla, el reporte sigue su curso
+    }
+    if (id !== idAnalisis.current) return // ya se eligió otra foto o se quitó esta
+
+    if (veredicto.estado === 'rechazada') {
+      setFoto(null)
+      setAnalisis(SIN_ANALISIS)
+      setErrorFoto(veredicto.motivo || 'La foto no corresponde a un problema urbano reportable.')
+      return
+    }
+    if (veredicto.estado !== 'ok') {
+      setAnalisis({ ...SIN_ANALISIS, estado: 'no_disponible' })
+      return
+    }
+    setAnalisis({ estado: 'ok', slug: veredicto.categoria_slug, confianza: veredicto.confianza ?? 0 })
+    const cat = categorias.find((c) => c.slug === veredicto.categoria_slug)
+    if (cat && !categoriaId) { // no pisa una elección del usuario
+      setCategoriaId(String(cat.id))
+      setSugerida(true)
+    }
+  }
+
+  function usarDetectada() {
+    setCategoriaId(String(conflicto.id))
+    setSugerida(true)
   }
 
   async function enviar(e) {
@@ -155,6 +209,10 @@ export default function ReportForm({ lat, lon, onClose, onSuccess }) {
     setErrorEnvio(null)
     setIntentado(true)
 
+    if (conflicto) {
+      document.getElementById('rf-conflicto')?.focus()
+      return
+    }
     const primero = ORDEN_CAMPOS.find((c) => errores[c])
     if (primero) {
       // 'ubicacion' no tiene campo propio: el aviso se muestra arriba del formulario
@@ -208,6 +266,9 @@ export default function ReportForm({ lat, lon, onClose, onSuccess }) {
     setEmail('')
     setFoto(null)
     setErrorFoto(null)
+    setAnalisis(SIN_ANALISIS)
+    setSugerida(false)
+    idAnalisis.current += 1
     setTocados({})
     setIntentado(false)
   }
@@ -231,44 +292,8 @@ export default function ReportForm({ lat, lon, onClose, onSuccess }) {
           {errores.ubicacion ? errores.ubicacion : `Ubicación: ${lat.toFixed(5)}, ${lon.toFixed(5)}`}
         </p>
 
-        <fieldset className="categorias" disabled={ocupado}>
-          <legend className="form-label">Tipo de problema</legend>
-          <div className="categorias__grid" role="radiogroup" aria-describedby={ver('categoria') ? 'rf-categoria-error' : undefined}>
-            {categorias.map((c, i) => (
-              <label key={c.id} className={`categoria${String(c.id) === categoriaId ? ' is-selected' : ''}`}>
-                <input
-                  type="radio"
-                  name="categoria"
-                  value={c.id}
-                  id={i === 0 ? 'rf-categoria' : undefined}
-                  checked={String(c.id) === categoriaId}
-                  onChange={(e) => { setCategoriaId(e.target.value); tocar('categoria') }}
-                  aria-invalid={ver('categoria') ? 'true' : undefined}
-                />
-                <CategoriaIcono slug={c.slug} />
-                <span>{c.nombre}</span>
-              </label>
-            ))}
-          </div>
-          <MensajeError id="rf-categoria-error" texto={ver('categoria')} />
-        </fieldset>
-
         <div className="mb-3">
-          <label className="form-label" htmlFor="rf-descripcion">Descripción (opcional)</label>
-          <textarea
-            {...props('descripcion')}
-            className="form-control"
-            rows={3}
-            maxLength={MAX_DESCRIPCION}
-            value={descripcion}
-            onChange={(e) => setDescripcion(e.target.value)}
-          />
-          <div className="report-form__meta">{descripcion.length}/{MAX_DESCRIPCION}</div>
-          <MensajeError id="rf-descripcion-error" texto={ver('descripcion')} />
-        </div>
-
-        <div className="mb-3">
-          <span className="form-label d-block">Foto (opcional)</span>
+          <span className="form-label d-block">Foto (opcional): ayuda a identificar el problema</span>
           <div className="report-form__acciones">
             <button
               {...props('foto')}
@@ -288,11 +313,63 @@ export default function ReportForm({ lat, lon, onClose, onSuccess }) {
           {preview && (
             <div className="report-form__foto">
               <img src={preview} alt="Vista previa de la foto" />
-              <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => { setFoto(null); setErrorFoto(null) }}>
+              <button type="button" className="btn btn-sm btn-outline-danger" onClick={quitarFoto}>
                 Quitar
               </button>
             </div>
           )}
+          <div className="rf-analisis" role="status" aria-live="polite">
+            {analizando && <span className="rf-analisis__texto"><i className="rf-analisis__giro" />Analizando foto…</span>}
+            {analisis.estado === 'no_disponible' && (
+              <span className="rf-analisis__aviso">No pudimos verificar la foto automáticamente; elige el tipo de problema.</span>
+            )}
+          </div>
+        </div>
+
+        <fieldset className={`categorias${analizando ? ' is-analizando' : ''}`} disabled={ocupado}>
+          <legend className="form-label">Tipo de problema</legend>
+          {sugerida && !conflicto && <p className="rf-sugerido">Sugerido por la foto. Puedes cambiarlo.</p>}
+          <div className="categorias__grid" role="radiogroup" aria-describedby={ver('categoria') ? 'rf-categoria-error' : undefined}>
+            {categorias.map((c, i) => (
+              <label key={c.id} className={`categoria${String(c.id) === categoriaId ? ' is-selected' : ''}${sugerida && String(c.id) === categoriaId ? ' is-sugerida' : ''}`}>
+                <input
+                  type="radio"
+                  name="categoria"
+                  value={c.id}
+                  id={i === 0 ? 'rf-categoria' : undefined}
+                  checked={String(c.id) === categoriaId}
+                  onChange={(e) => { setCategoriaId(e.target.value); setSugerida(false); tocar('categoria') }}
+                  aria-invalid={ver('categoria') ? 'true' : undefined}
+                />
+                <CategoriaIcono slug={c.slug} />
+                <span>{c.nombre}</span>
+              </label>
+            ))}
+          </div>
+          <MensajeError id="rf-categoria-error" texto={ver('categoria')} />
+          {conflicto && (
+            <div id="rf-conflicto" className="alert alert-warning rf-conflicto" role="alert" tabIndex={-1}>
+              <p>La foto parece ser de <strong>{conflicto.nombre}</strong>, pero elegiste otro tipo.</p>
+              <div className="report-form__acciones">
+                <button type="button" className="btn btn-sm btn-primary" onClick={usarDetectada}>Usar «{conflicto.nombre}»</button>
+                <button type="button" className="btn btn-sm btn-outline-secondary" onClick={quitarFoto}>Quitar foto</button>
+              </div>
+            </div>
+          )}
+        </fieldset>
+
+        <div className="mb-3">
+          <label className="form-label" htmlFor="rf-descripcion">Descripción (opcional)</label>
+          <textarea
+            {...props('descripcion')}
+            className="form-control"
+            rows={3}
+            maxLength={MAX_DESCRIPCION}
+            value={descripcion}
+            onChange={(e) => setDescripcion(e.target.value)}
+          />
+          <div className="report-form__meta">{descripcion.length}/{MAX_DESCRIPCION}</div>
+          <MensajeError id="rf-descripcion-error" texto={ver('descripcion')} />
         </div>
 
         <div className="mb-3">
@@ -328,9 +405,12 @@ export default function ReportForm({ lat, lon, onClose, onSuccess }) {
 
         {errorEnvio && <div className="alert alert-danger" role="alert">{errorEnvio}</div>}
 
-        <button type="submit" className="btn btn-primary w-100" disabled={ocupado}>
-          {estado === 'subiendo' ? 'Subiendo foto…' : estado === 'enviando' ? 'Enviando…' : 'Enviar reporte'}
+        <button type="submit" className="btn btn-primary w-100" disabled={ocupado || analizando}>
+          {analizando ? 'Analizando foto…' : estado === 'subiendo' ? 'Subiendo foto…' : estado === 'enviando' ? 'Enviando…' : 'Enviar reporte'}
         </button>
+        <p className="report-form__meta">
+          Al enviar aceptas los <Link to="/terminos" target="_blank" rel="noopener">términos y condiciones</Link>.
+        </p>
       </form>
     )
   }

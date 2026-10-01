@@ -13,8 +13,14 @@ function enlacesPara(ruta) {
   if (ruta.startsWith('/rastreo')) {
     return [{ to: '/', texto: 'Reportar un problema', title: 'Ir al mapa para hacer un reporte' }];
   }
+  if (ruta.startsWith('/terminos')) {
+    return [{ to: '/', texto: 'Reportar un problema', title: 'Ir al mapa para hacer un reporte' }];
+  }
   // Módulo ciudadano de reportes
-  return [{ to: '/rastreo', texto: 'Rastreo de Reportes', title: 'Consulta el estado de tu reporte' }];
+  return [
+    { to: '/rastreo', texto: 'Rastreo de Reportes', title: 'Consulta el estado de tu reporte' },
+    { to: '/terminos', texto: 'Términos', title: 'Términos y condiciones de uso' },
+  ];
 }
 
 export default function NavBar() {

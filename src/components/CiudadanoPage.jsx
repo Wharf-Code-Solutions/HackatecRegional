@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import MapView from './MapView';
 import BottomSheet from './BottomSheet';
+import { TerminosGate } from './Terminos';
+import { terminosAceptados } from '../lib/terminos';
 import { getIncidenciasPublicas, nivelPrioridad } from '../lib/api';
 
 // El formulario (y supabase-js) se descarga al abrirlo, no en la carga inicial
@@ -17,6 +19,7 @@ export default function CiudadanoPage() {
   const [incidencias, setIncidencias] = useState([]);
   const [pinSeleccionado, setPinSeleccionado] = useState(null);
   const [tick, setTick] = useState(0);
+  const [aceptoTerminos, setAceptoTerminos] = useState(terminosAceptados);
 
   // Los pines son informativos: si falla la carga, el mapa sigue siendo usable
   useEffect(() => {
@@ -47,6 +50,8 @@ export default function CiudadanoPage() {
 
   return (
     <>
+      {!aceptoTerminos && <TerminosGate onAceptar={() => setAceptoTerminos(true)} />}
+
       <MapView
         onLocationChange={handleLocationChange}
         onGenerarReporte={handleGenerarReporte}
