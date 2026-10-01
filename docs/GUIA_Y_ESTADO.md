@@ -127,6 +127,13 @@ El formulario envía `nombre_ciudadano` (obligatorio en la interfaz, opcional en
 - **Tarjetas** de altura fija (132 px): título y ubicación se recortan con elipsis para que la lista se vea uniforme.
 - **Header por módulo:** `/` solo "Rastreo de Reportes"; `/rastreo` "Reportar un problema"; `/admin` "Dashboard"; `/admin/dashboard` "Incidencias". El dashboard de información es por ahora una página base.
 
+## Seguimiento por folio (`/rastreo`)
+- El ciudadano escribe el **folio de 8 caracteres** (el mismo `#XXXXXXXX` que ve en la confirmación, el correo y el panel). También funciona el enlace directo `/rastreo?folio=840C9033`, que llevan los correos y la pantalla de "Reporte enviado".
+- **Endpoint público:** `GET /api/rastreo/{folio}`. Busca por el rango de UUID que empieza con esos 8 caracteres. Devuelve solo `folio, categoria, categoria_nombre, estado, reportes_count, created_at, atendida_at, colonia, municipio`; **nunca** nombres, correos, fotos, descripciones ni la dirección exacta.
+- Códigos: 200 encontrado · 404 no existe **o fue rechazado** (no se confirma que exista) · 422 formato inválido · 429 más de 20 consultas por minuto por IP.
+- La página muestra tres pasos reales (Recibido, En proceso, Atendido) con fechas, zona y número de reportes sobre el mismo problema; diseñada primero para móvil (columna única, botones de 48 px, scroll propio). Sin datos fijos: todo viene del endpoint.
+- Los correos incluyen el botón "Consultar el estado de mi reporte". La URL base sale de `APP_URL` (por defecto `https://hackatec-regional.vercel.app`).
+
 ## 6. Flujo de ramas
 - `main` = producción (Vercel). Solo entra código por PR.
 - `feat/*` = una rama por módulo, creada desde `main` actualizado. Cada push genera un preview en Vercel.

@@ -1,6 +1,7 @@
 import html
 import math
 import os
+import re
 import smtplib
 import ssl
 import time
@@ -78,18 +79,27 @@ async def exigir_base_de_datos(request: Request, call_next):
 # Máximo 5 reportes por IP en 60 segundos.
 # ─────────────────────────────────────────────
 _rate_store: dict = defaultdict(list)
-RATE_LIMIT  = 5
 RATE_WINDOW = 60.0
+# cubeta -> (máximo de peticiones por ventana, mensaje)
+LIMITES = {
+    "reportes": (5, "Demasiados reportes. Espera un momento antes de volver a enviar."),
+    "rastreo": (20, "Demasiadas consultas. Espera un momento antes de volver a buscar."),
+}
 
-def check_rate_limit(ip: str) -> None:
+def check_rate_limit(ip: str, cubeta: str = "reportes") -> None:
+    maximo, mensaje = LIMITES[cubeta]
+    clave = (cubeta, ip)
     now = time.time()
-    _rate_store[ip] = [t for t in _rate_store[ip] if now - t < RATE_WINDOW]
-    if len(_rate_store[ip]) >= RATE_LIMIT:
-        raise HTTPException(
-            status_code=429,
-            detail="Demasiados reportes. Espera un momento antes de volver a enviar.",
-        )
-    _rate_store[ip].append(now)
+    _rate_store[clave] = [t for t in _rate_store[clave] if now - t < RATE_WINDOW]
+    if len(_rate_store[clave]) >= maximo:
+        raise HTTPException(status_code=429, detail=mensaje)
+    _rate_store[clave].append(now)
+
+
+def ip_del_cliente(request: Request) -> str:
+    # Detrás del proxy de Vercel, la IP real del ciudadano viene en X-Forwarded-For
+    forwarded = request.headers.get("x-forwarded-for", "")
+    return forwarded.split(",")[0].strip() or (request.client.host if request.client else "unknown")
 
 
 # ─────────────────────────────────────────────
@@ -104,6 +114,8 @@ SMTP_USER = os.environ.get("SMTP_USER")
 # Las contraseñas de aplicación de Google se muestran con espacios ("abcd efgh ..."); se usan sin ellos
 SMTP_PASSWORD = (os.environ.get("SMTP_PASSWORD") or "").replace(" ", "")
 MAIL_FROM_NAME = os.environ.get("MAIL_FROM_NAME", "Reportes Urbanos")
+# URL pública de la app para el enlace de seguimiento de los correos
+APP_URL = os.environ.get("APP_URL", "https://hackatec-regional.vercel.app").rstrip("/")
 MAX_DESTINATARIOS = 50
 
 GUINDA, DORADO, VERDE = "#9D2449", "#BC955C", "#13322E"
@@ -142,6 +154,7 @@ def construir_correo(etapa: str, nombre: Optional[str], incidencia_id: str, cate
     asunto, titulo, mensaje, color = ETAPAS[etapa]
     saludo = f"Hola {html.escape(nombre)}," if nombre else "Hola ciudadano,"
     folio = _folio(incidencia_id)
+    seguimiento = f"{APP_URL}/rastreo?folio={folio}"
     cat = html.escape(categoria) if categoria else None
 
     pasos_html = " &rsaquo; ".join(
@@ -180,6 +193,10 @@ def construir_correo(etapa: str, nombre: Optional[str], incidencia_id: str, cate
           </p>
         </div>
 
+        <p style="margin:0 0 16px; text-align:center;">
+          <a href="{seguimiento}" style="display:inline-block; background-color:{GUINDA}; color:#ffffff; text-decoration:none; font-weight:bold; padding:11px 22px; border-radius:6px;">Consultar el estado de mi reporte</a>
+        </p>
+
         <p style="margin:0 0 20px;">Gracias por ayudar a construir una mejor ciudad.</p>
 
         <!-- Firma -->
@@ -196,7 +213,8 @@ def construir_correo(etapa: str, nombre: Optional[str], incidencia_id: str, cate
     texto = (
         f"{saludo.replace(html.escape(nombre or ''), nombre or '')}\n\n{mensaje_texto}\n\n"
         + (f"Tipo de problema: {categoria}\n" if categoria else "")
-        + f"Folio de seguimiento: {folio}\n\n"
+        + f"Folio de seguimiento: {folio}\n"
+        f"Consulta el estado de tu reporte: {seguimiento}\n\n"
         "Gracias por ayudar a construir una mejor ciudad.\n\n"
         "Atentamente,\nAyuntamiento Municipal - Plataforma Hackatec\n"
     )
@@ -580,13 +598,49 @@ def incidencias_publicas():
         raise HTTPException(status_code=500, detail="Error interno al obtener las incidencias.")
 
 
+@app.get("/api/rastreo/{folio}", tags=["Ciudadano"])
+def rastrear_folio(folio: str, request: Request):
+    """Seguimiento público de un reporte por su folio (los 8 primeros caracteres del id).
+    Devuelve SOLO datos públicos: tipo, estado, fechas, colonia/municipio y cuántos reportes comparten la incidencia.
+    Nunca nombres, correos, fotos, descripciones ni la dirección exacta. Las rechazadas (spam) responden 404."""
+    check_rate_limit(ip_del_cliente(request), "rastreo")
+    codigo = folio.strip().lstrip("#").lower()
+    if not re.fullmatch(r"[0-9a-f]{8}", codigo):
+        raise HTTPException(status_code=422, detail="El folio debe tener 8 caracteres (números y letras A-F), por ejemplo 840C9033.")
+    try:
+        # el folio es el inicio del UUID: se busca el rango de UUID que empieza con esos 8 caracteres
+        filas = (
+            supabase.table("v_incidencias_admin")
+            .select("id, categoria, categoria_nombre, estado, reportes_count, created_at, atendida_at, colonia, municipio")
+            .gte("id", f"{codigo}-0000-0000-0000-000000000000")
+            .lte("id", f"{codigo}-ffff-ffff-ffff-ffffffffffff")
+            .order("created_at", desc=False)
+            .limit(1)
+            .execute()
+            .data
+        )
+    except Exception as e:
+        print(f"ERROR GET /api/rastreo: {type(e).__name__}")
+        raise HTTPException(status_code=500, detail="No pudimos consultar el folio. Intenta de nuevo en un momento.")
+    if not filas or filas[0]["estado"] == "rechazada":
+        raise HTTPException(status_code=404, detail="No encontramos un reporte con ese folio. Revisa que esté completo.")
+    r = filas[0]
+    return {
+        "folio": _folio(r["id"]),
+        "categoria": r["categoria"],
+        "categoria_nombre": r["categoria_nombre"],
+        "estado": r["estado"],
+        "reportes_count": r["reportes_count"],
+        "created_at": r["created_at"],
+        "atendida_at": r["atendida_at"],
+        "colonia": r.get("colonia"),
+        "municipio": r.get("municipio"),
+    }
+
 @app.post("/api/reportes", tags=["Ciudadano"], status_code=201)
 def registrar_reporte(reporte: ReporteNuevo, request: Request):
     """Registra un reporte ciudadano. Incluye rate-limit 5 req/min por IP."""
-    # Detrás del proxy de Vercel, la IP real del ciudadano viene en X-Forwarded-For
-    forwarded = request.headers.get("x-forwarded-for", "")
-    ip = forwarded.split(",")[0].strip() or (request.client.host if request.client else "unknown")
-    check_rate_limit(ip)
+    check_rate_limit(ip_del_cliente(request), "reportes")
 
     payload = {
         "p_categoria_id": reporte.categoria_id,

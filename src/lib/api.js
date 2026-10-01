@@ -8,13 +8,15 @@ async function request(ruta, opciones = {}) {
       headers: { 'Content-Type': 'application/json', ...opciones.headers },
     })
   } catch {
-    throw new Error('No hay conexión con el servidor')
+    throw Object.assign(new Error('No hay conexión con el servidor'), { status: 0 })
   }
 
   const data = await res.json().catch(() => null)
   if (!res.ok) {
-    if (res.status >= 500 && res.status !== 503) throw new Error('Error del servidor, intenta de nuevo')
-    throw new Error(typeof data?.detail === 'string' ? data.detail : 'Datos inválidos')
+    if (res.status >= 500 && res.status !== 503) {
+      throw Object.assign(new Error('Error del servidor, intenta de nuevo'), { status: res.status })
+    }
+    throw Object.assign(new Error(typeof data?.detail === 'string' ? data.detail : 'Datos inválidos'), { status: res.status })
   }
   return data
 }
@@ -28,6 +30,9 @@ export const getIncidencias = (estado) =>
 
 // Pines del mapa ciudadano: endpoint público, solo activas y sin datos personales
 export const getIncidenciasPublicas = () => request('/api/incidencias')
+
+// Seguimiento público por folio (8 caracteres); devuelve solo datos públicos
+export const getRastreo = (folio) => request(`/api/rastreo/${encodeURIComponent(folio)}`)
 
 export const getDetalle = (id) => request(`/api/admin/incidencias/${id}`)
 

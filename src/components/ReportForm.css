@@ -108,3 +108,5 @@
 @media (prefers-reduced-motion: reduce) {
   .rf-exito__circulo, .rf-exito__marca { animation: none; stroke-dashoffset: 0; }
 }
+
+.rf-folio__nota a { font-weight: 600; color: var(--gob-guinda); }

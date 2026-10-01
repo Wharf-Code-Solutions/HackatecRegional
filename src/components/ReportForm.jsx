@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase, variablesFaltantes } from '../lib/supabase'
 import { subirFoto } from '../lib/subirFoto'
 import { folio } from '../lib/api'
@@ -84,7 +85,10 @@ function ReporteEnviado({ resultado, onOtro, onClose }) {
         </button>
       </div>
       <span className="visually-hidden" aria-live="polite">{copiado ? 'Folio copiado' : ''}</span>
-      <p className="rf-folio__nota">Guárdalo para dar seguimiento a tu reporte.</p>
+      <p className="rf-folio__nota">
+        Guárdalo para dar seguimiento a tu reporte.{' '}
+        <Link to={`/rastreo?folio=${codigo}`}>Ver el avance de mi reporte</Link>
+      </p>
 
       <div className="report-form__acciones">
         <button type="button" className="btn btn-primary" onClick={onOtro}>Hacer otro reporte</button>

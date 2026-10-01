@@ -1,149 +1,210 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { getRastreo, fechaHora } from '../lib/api';
+import CategoriaIcono from './CategoriaIcono';
 import './Rastreo.css';
 
-export default function Rastreo() {
-  const [folioInput, setFolioInput] = useState('');
-  const [resultado, setResultado] = useState(null);
-  const [cargando, setCargando] = useState(false);
-  const [error, setError] = useState(null);
+const FORMATO_FOLIO = /^[0-9A-Fa-f]{8}$/;
 
-  // Función SIMULADA solo para diseño (sin llamadas reales al servidor)
-  const handleBuscar = () => {
-    // Limpiamos espacios y quitamos el # si el usuario lo puso
-    const folioLimpio = folioInput.trim().replace('#', '');
-    if (!folioLimpio) return;
+// Pasos reales del sistema (los mismos estados que usa el funcionario)
+const PASOS = [
+  { clave: 'pendiente', titulo: 'Reporte recibido' },
+  { clave: 'en_proceso', titulo: 'En proceso de atención' },
+  { clave: 'atendida', titulo: 'Atendido' },
+];
+const ETIQUETA_ESTADO = { pendiente: 'Recibido', en_proceso: 'En proceso', atendida: 'Atendido' };
 
-    setCargando(true);
-    setError(null);
-    setResultado(null);
+// "08:04 p.m." ya termina en punto: evita "p.m.."
+const conPunto = (texto) => (texto.endsWith('.') ? texto : `${texto}.`);
 
-    // Simulamos el tiempo de carga del servidor (500ms)
-    setTimeout(() => {
-      setCargando(false);
-      
-      // Mapeamos datos estáticos de prueba (Mock) para ver el diseño
-      setResultado({
-        folio: `123e4567-e89b-12d3-a456-${folioLimpio.substring(0, 12).padEnd(12, '0')}`, // Simulamos un UUID
-        fecha: new Date().toISOString(),
-        titulo: 'Bache Profundo en Vía Principal',
-        ubicacion: 'Col. Centro, Calle 5 de Mayo esq. Av. Hidalgo',
-        estado: 'EN PROCESO — Revisión',
-        impactoCiudadanos: 4
-      });
-    }, 500);
-  };
+const limpiarFolio = (valor) => valor.trim().replace(/^#/, '').toUpperCase();
+
+function estadoDelPaso(indice, estado) {
+  const actual = PASOS.findIndex((p) => p.clave === estado);
+  if (estado === 'atendida' || indice < actual) return 'hecho';
+  return indice === actual ? 'actual' : 'pendiente';
+}
+
+function textoDelPaso(clave, situacion, r) {
+  if (clave === 'pendiente') {
+    const registrado = conPunto(`Registrado el ${fechaHora(r.created_at)}`);
+    return situacion === 'actual' ? `${registrado} Está en espera de que lo revisen.` : registrado;
+  }
+  if (clave === 'en_proceso') {
+    if (situacion === 'actual') return 'Una cuadrilla del Ayuntamiento ya está atendiendo el problema.';
+    return situacion === 'hecho' ? 'Se atendió el problema.' : 'Aún no ha iniciado la atención.';
+  }
+  if (situacion === 'hecho') return r.atendida_at ? conPunto(`Resuelto el ${fechaHora(r.atendida_at)}`) : 'Resuelto.';
+  return 'Pendiente.';
+}
+
+function Resultado({ r, onActualizar, onOtro }) {
+  const zona = r.colonia
+    ? `Col. ${r.colonia}${r.municipio ? `, ${r.municipio}` : ''}`
+    : (r.municipio || 'No disponible');
 
   return (
-    <div className="rastreo-wrapper">
-      
-      <div className="rastreo-header">
-        <h1>📄 Consulta de Folios</h1>
-        <p>Conoce el estado y avance de tu reporte ciudadano en tiempo real ante las cuadrillas municipales.</p>
-      </div>
-
-      {/* CAJA DE BÚSQUEDA */}
-      <div className="search-box">
-        <label className="search-label">Número de Folio Oficial (UUID)</label>
-        <div className="search-input-group">
-          <input 
-            type="text" 
-            className="search-input" 
-            placeholder="Ej. 123e4567-e89b-12d3-a456-426614174000"
-            value={folioInput}
-            onChange={(e) => setFolioInput(e.target.value)}
-            disabled={cargando}
-          />
-          <button className="btn-buscar" onClick={handleBuscar} disabled={cargando}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-            {cargando ? 'Buscando...' : 'Buscar Folio'}
-          </button>
+    <article className="rastreo-resultado" aria-live="polite">
+      <header className="rastreo-resultado__cabecera">
+        <span className="rastreo-resultado__icono"><CategoriaIcono slug={r.categoria} size={30} /></span>
+        <div className="rastreo-resultado__titulo">
+          <h2>{r.categoria_nombre}</h2>
+          <span className="rastreo-folio">Folio {r.folio}</span>
         </div>
-        {error && <p style={{ color: 'var(--gob-guinda)', fontSize: '13px', marginTop: '12px', fontWeight: '600' }}>{error}</p>}
-      </div>
+        <span className={`rastreo-estado rastreo-estado--${r.estado}`}>{ETIQUETA_ESTADO[r.estado] ?? r.estado}</span>
+      </header>
 
-      {/* RESULTADO DE LA BÚSQUEDA */}
-      {resultado && (
-        <div className="result-card">
-          <div className="result-header">
-            <div className="result-folio-row">
-              <span className="tag-folio-dark">FOLIO COMPROBADO</span>
-              <span className="result-date">🕒 {new Date(resultado.fecha).toLocaleString()}</span>
-            </div>
-            <h2 className="result-title">{resultado.titulo}</h2>
-            <div className="result-location">
-              📍 {resultado.ubicacion}
-            </div>
-            <span className="status-badge">● {resultado.estado}</span>
-            <div style={{ fontSize: '11px', color: '#888', marginTop: '8px' }}>
-              ID UUID: {resultado.folio}
-            </div>
-          </div>
-
-          <div className="timeline-section">
-            <div className="timeline-title">
-              📈 Línea de Avance Oficial
-            </div>
-
-            <div className="timeline">
-              <div className="timeline-item completed">
-                <div className="timeline-icon">✓</div>
-                <div className="step-header">
-                  <span className="step-title">1. Reporte recibido y verificado</span>
-                </div>
-                <div className="step-desc">
-                  Registrado exitosamente en la base de datos del sistema municipal.
-                </div>
+      <ol className="rastreo-pasos" aria-label="Avance del reporte">
+        {PASOS.map((p, i) => {
+          const situacion = estadoDelPaso(i, r.estado);
+          return (
+            <li key={p.clave} className={`rastreo-paso rastreo-paso--${situacion}`} aria-current={situacion === 'actual' ? 'step' : undefined}>
+              <span className="rastreo-paso__marca" aria-hidden="true">{situacion === 'hecho' ? '✓' : i + 1}</span>
+              <div>
+                <strong>{p.titulo}</strong>
+                <p>{textoDelPaso(p.clave, situacion, r)}</p>
               </div>
+            </li>
+          );
+        })}
+      </ol>
 
-              <div className="timeline-item active">
-                <div className="timeline-icon">📋</div>
-                <div className="step-header">
-                  <span className="step-title" style={{color: 'var(--gob-guinda)'}}>2. Triage y priorización</span>
-                </div>
-                <div className="step-highlight">
-                  Fase actual: <strong>{resultado.estado}</strong>
-                </div>
-              </div>
-
-              <div className="timeline-item pending">
-                <div className="timeline-icon">🚚</div>
-                <div className="step-header">
-                  <span className="step-title">3. Cuadrilla despachada</span>
-                  <span className="step-time">Pendiente</span>
-                </div>
-              </div>
-
-              <div className="timeline-item pending">
-                <div className="timeline-icon">🔒</div>
-                <div className="step-header">
-                  <span className="step-title">4. Reparación y cierre con evidencia</span>
-                  <span className="step-time">Pendiente</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Impacto / Resonancia */}
-            <div className="community-impact">
-              <div className="impact-icon">👥</div>
-              <div className="impact-text">
-                <h4>Resonancia Comunitaria</h4>
-                <p><strong>{resultado.impactoCiudadanos} ciudadanos</strong> han reportado esta misma incidencia en la zona (Clúster activo).</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="result-footer">
-            <button className="btn-secondary" onClick={() => window.location.href='/'}>Volver al mapa</button>
-            <button className="btn-secondary" onClick={() => {setResultado(null); setFolioInput('');}}>Buscar otro folio</button>
-          </div>
+      <dl className="rastreo-datos">
+        <div><dt>Zona</dt><dd>{zona}</dd></div>
+        <div>
+          <dt>Reportes ciudadanos</dt>
+          <dd>
+            {r.reportes_count === 1
+              ? '1 reporte'
+              : `${r.reportes_count} reportes sobre este mismo problema`}
+          </dd>
         </div>
-      )}
+      </dl>
 
-      <div className="disclaimer">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-        Centro Cívico garantiza trazabilidad pública e inalterable en todos los reportes emitidos.
+      <div className="rastreo-acciones">
+        <button type="button" className="btn btn-outline-secondary" onClick={onActualizar}>Actualizar estado</button>
+        <button type="button" className="btn btn-outline-secondary" onClick={onOtro}>Buscar otro folio</button>
+        <Link to="/" className="btn btn-primary">Hacer un nuevo reporte</Link>
       </div>
+      <p className="rastreo-nota">Esta consulta solo muestra el avance público; no incluye datos personales.</p>
+    </article>
+  );
+}
 
-    </div>
+export default function Rastreo() {
+  const [params, setParams] = useSearchParams();
+  const folioUrl = limpiarFolio(params.get('folio') ?? '');
+  const [entrada, setEntrada] = useState(folioUrl);
+  const [errorEntrada, setErrorEntrada] = useState(null);
+  const [tick, setTick] = useState(0);
+  const [respuesta, setRespuesta] = useState({ folio: null, tick: -1, datos: null, error: null });
+  const inputRef = useRef(null);
+
+  const formatoValido = FORMATO_FOLIO.test(folioUrl);
+  const hayConsulta = folioUrl !== '';
+  // "Cargando" = todavía no llega la respuesta de la consulta actual (folio + actualización)
+  const cargando = formatoValido && (respuesta.folio !== folioUrl || respuesta.tick !== tick);
+
+  useEffect(() => {
+    if (!FORMATO_FOLIO.test(folioUrl)) return undefined;
+    let vigente = true;
+    getRastreo(folioUrl)
+      .then((datos) => vigente && setRespuesta({ folio: folioUrl, tick, datos, error: null }))
+      .catch((e) => vigente && setRespuesta({ folio: folioUrl, tick, datos: null, error: { mensaje: e.message, status: e.status ?? 0 } }));
+    return () => { vigente = false; };
+  }, [folioUrl, tick]);
+
+  function buscar(e) {
+    e.preventDefault();
+    const folio = limpiarFolio(entrada);
+    if (!folio) return setErrorEntrada('Escribe el folio de tu reporte.');
+    if (!FORMATO_FOLIO.test(folio)) {
+      return setErrorEntrada('El folio tiene 8 caracteres: números y letras de la A a la F, por ejemplo 840C9033.');
+    }
+    setErrorEntrada(null);
+    setEntrada(folio);
+    setParams({ folio }); // la URL queda compartible: /rastreo?folio=840C9033
+    setTick((n) => n + 1);
+  }
+
+  function otroFolio() {
+    setParams({});
+    setEntrada('');
+    setErrorEntrada(null);
+    inputRef.current?.focus();
+  }
+
+  let contenido = null;
+  if (hayConsulta && !formatoValido) {
+    contenido = (
+      <div className="rastreo-aviso rastreo-aviso--error" role="alert">
+        El folio «{folioUrl}» no tiene el formato correcto. Debe tener 8 caracteres, por ejemplo 840C9033.
+      </div>
+    );
+  } else if (cargando) {
+    contenido = (
+      <div className="rastreo-cargando" role="status">
+        <span className="rastreo-cargando__giro" />
+        Buscando tu reporte…
+      </div>
+    );
+  } else if (hayConsulta && respuesta.error) {
+    const { mensaje, status } = respuesta.error;
+    const titulo = status === 404 ? 'Folio no encontrado' : status === 429 ? 'Espera un momento' : 'No pudimos mostrar el reporte';
+    // "Reintentar" solo ayuda ante fallos de red o del servidor; si el folio no existe hay que corregirlo
+    const reintentable = status === 0 || status >= 500;
+    contenido = (
+      <div className="rastreo-aviso rastreo-aviso--error" role="alert">
+        <strong>{titulo}</strong>
+        <span>{mensaje}</span>
+        {reintentable && (
+          <button type="button" className="btn btn-outline-secondary" onClick={() => setTick((n) => n + 1)}>Reintentar</button>
+        )}
+      </div>
+    );
+  } else if (hayConsulta && respuesta.datos) {
+    contenido = <Resultado r={respuesta.datos} onActualizar={() => setTick((n) => n + 1)} onOtro={otroFolio} />;
+  }
+
+  return (
+    <section className="rastreo">
+      <div className="rastreo__contenido">
+        <header className="rastreo-intro">
+          <h1>Seguimiento de reportes</h1>
+          <p>Consulta el avance de tu reporte con el folio que recibiste al enviarlo.</p>
+        </header>
+
+        <form className="rastreo-buscador" onSubmit={buscar} noValidate>
+          <label htmlFor="rastreo-folio">Folio de tu reporte</label>
+          <div className="rastreo-buscador__fila">
+            <input
+              ref={inputRef}
+              id="rastreo-folio"
+              className="form-control"
+              type="text"
+              inputMode="text"
+              autoCapitalize="characters"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              maxLength={9}
+              placeholder="Ej. 840C9033"
+              value={entrada}
+              onChange={(e) => setEntrada(e.target.value.toUpperCase())}
+              aria-invalid={errorEntrada ? 'true' : undefined}
+              aria-describedby={errorEntrada ? 'rastreo-error' : 'rastreo-ayuda'}
+            />
+            <button type="submit" className="btn btn-primary" disabled={cargando}>
+              {cargando ? 'Buscando…' : 'Buscar'}
+            </button>
+          </div>
+          {errorEntrada
+            ? <p id="rastreo-error" className="rastreo-buscador__error" role="alert">{errorEntrada}</p>
+            : <p id="rastreo-ayuda" className="rastreo-buscador__ayuda">Está en la pantalla de confirmación y en el correo que te enviamos.</p>}
+        </form>
+
+        {contenido}
+      </div>
+    </section>
   );
 }
