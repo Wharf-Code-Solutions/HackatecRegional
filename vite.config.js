@@ -11,6 +11,8 @@ export default defineConfig(({ mode }) => {
 
   return {
   plugins: [react()],
+  // Safari 15 (iPhone con iOS 15) como mínimo: el valor por defecto de Vite deja fuera iOS 15.0-16.3
+  build: { target: ['es2020', 'safari15'], cssTarget: 'safari15' },
   server: {
     // En local no corre FastAPI: /api se manda al despliegue de Vercel.
     proxy: {

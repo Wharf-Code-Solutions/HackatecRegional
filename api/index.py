@@ -68,8 +68,8 @@ if not VARIABLES_FALTANTES:
 
 @app.middleware("http")
 async def exigir_base_de_datos(request: Request, call_next):
-    """Sin credenciales de Supabase solo responde /api/health; el resto devuelve 503 claro."""
-    if supabase is None and request.url.path != "/api/health":
+    """Sin credenciales de Supabase solo responde /api/health (y el análisis de foto, que no usa la base de datos); el resto devuelve 503 claro."""
+    if supabase is None and request.url.path not in ("/api/health", "/api/reportes/analizar-foto"):
         return JSONResponse(
             status_code=503,
             content={"detail": f"Falta configurar en el servidor: {', '.join(VARIABLES_FALTANTES)}"},
@@ -566,10 +566,21 @@ class RechazarIncidencia(BaseModel):
 
 @app.get("/api/health", tags=["Sistema"])
 def health_check():
+    proveedor = _proveedor_vision()
     return {
         "status": "online",
         "db_connected": supabase is not None,
         "faltan_variables": VARIABLES_FALTANTES,
+        # Análisis de foto: solo estado y modelo, jamás las claves
+        "vision": {
+            "configurado": proveedor is not None,
+            "proveedor": proveedor[0] if proveedor else None,
+            "modelo": proveedor[3] if proveedor else None,
+            "faltan_variables": [
+                f"{pre}_{sufijo}" for _, _, pre in PROVEEDORES_VISION[:1] for sufijo in ("API_KEY", "MODEL")
+                if not os.environ.get(f"{pre}_{sufijo}")
+            ] if proveedor is None else [],
+        },
     }
 
 
@@ -679,9 +690,15 @@ class FotoAnalisis(BaseModel):
 
 
 def _json_del_modelo(texto: str) -> Optional[dict]:
-    """Extrae el objeto JSON de la respuesta, ignorando bloques <think> y texto alrededor."""
-    texto = re.sub(r"<think>.*?</think>", "", texto or "", flags=re.S)
-    for candidato in reversed(re.findall(r"\{.*?\}", texto, flags=re.S)):
+    """Extrae el objeto JSON de la respuesta, ignorando bloques <think>, cercas ```json y texto alrededor."""
+    texto = re.sub(r"<think>.*?</think>", "", texto or "", flags=re.S).strip()
+    texto = re.sub(r"^```(?:json)?\s*|\s*```$", "", texto, flags=re.I).strip()
+    candidatos = [texto]
+    inicio, fin = texto.find("{"), texto.rfind("}")
+    if 0 <= inicio < fin:
+        candidatos.append(texto[inicio:fin + 1])
+    candidatos += reversed(re.findall(r"\{[^{}]*\}", texto))
+    for candidato in candidatos:
         try:
             datos = json.loads(candidato)
             if isinstance(datos, dict):
@@ -706,10 +723,14 @@ def analizar_foto(datos: FotoAnalisis, request: Request):
     if not crudo.startswith(b"\xff\xd8"):
         raise HTTPException(status_code=422, detail="La imagen debe ser JPEG.")
 
-    no_disponible = {"estado": "no_disponible", "categoria_slug": None, "confianza": 0, "motivo": None}
+    def no_disponible(razon: str) -> dict:
+        # "razon" ayuda a diagnosticar desde el navegador (?debug=1) sin exponer claves ni datos del usuario
+        return {"estado": "no_disponible", "categoria_slug": None, "confianza": 0, "motivo": None, "razon": razon}
+
     proveedor = _proveedor_vision()
     if not proveedor:
-        return no_disponible
+        print("analizar-foto: sin proveedor de visión (faltan GEMINI_API_KEY/GEMINI_MODEL o GROQ_API_KEY/GROQ_MODEL)")
+        return no_disponible("sin_proveedor")
     nombre_proveedor, url_vision, api_key, modelo, pre = proveedor
 
     lista = "\n".join(f'- "{slug}": {desc}' for slug, desc in CATEGORIAS_VISION.items())
@@ -764,11 +785,20 @@ def analizar_foto(datos: FotoAnalisis, request: Request):
         res.raise_for_status()
         veredicto = _json_del_modelo(res.json()["choices"][0]["message"]["content"])
     except Exception as e:
-        estado_http = getattr(getattr(e, "response", None), "status_code", "")
-        print(f"ERROR analizar-foto ({nombre_proveedor}): {type(e).__name__} {estado_http}")
-        return no_disponible
+        respuesta = getattr(e, "response", None)
+        estado_http = getattr(respuesta, "status_code", "")
+        detalle = " ".join((getattr(respuesta, "text", "") or "")[:200].split())  # la clave va en el header, no aquí
+        print(f"ERROR analizar-foto ({nombre_proveedor}): {type(e).__name__} {estado_http} {detalle}")
+        if estado_http:
+            return no_disponible(f"proveedor_http_{estado_http}")
+        if isinstance(e, httpx.TimeoutException):
+            return no_disponible("timeout")
+        if isinstance(e, httpx.HTTPError):
+            return no_disponible("error_red")
+        return no_disponible("respuesta_inesperada")
     if not veredicto:
-        return no_disponible
+        print(f"ERROR analizar-foto ({nombre_proveedor}): la respuesta del modelo no trae un JSON utilizable")
+        return no_disponible("json_invalido")
 
     slug = str(veredicto.get("categoria", "ninguna")).strip().lower()
     if slug not in CATEGORIAS_VISION:

@@ -57,9 +57,11 @@
   gap: 10px;
 }
 
-.btn-generar-reporte:hover {
-  background-color: #7a1a32;
-  transform: translateX(-50%) scale(1.05);
+@media (hover: hover) {
+  .btn-generar-reporte:hover {
+    background-color: #7a1a32;
+    transform: translateX(-50%) scale(1.05);
+  }
 }
 
 /* Botón personalizado de GPS ciudadano (Movido arriba a la derecha) */
@@ -84,9 +86,11 @@
   transition: background-color 0.2s, transform 0.2s;
 }
 
-.btn-ubicarme:hover {
-  background-color: var(--gob-gris-claro);
-  transform: scale(1.05);
+@media (hover: hover) {
+  .btn-ubicarme:hover {
+    background-color: var(--gob-gris-claro);
+    transform: scale(1.05);
+  }
 }
 /* Pines públicos de incidencias activas: misma forma de gota que el panel del funcionario,
    sin números ni datos personales */
@@ -101,13 +105,11 @@
   cursor: pointer;
   transition: transform 0.15s;
 }
-.pin-publico:hover, .pin-publico:focus-visible { transform: rotate(-45deg) scale(1.25); }
+.pin-publico:focus-visible { transform: rotate(-45deg) scale(1.25); }
+@media (hover: hover) { .pin-publico:hover { transform: rotate(-45deg) scale(1.25); } }
 .pin-publico-alta { background: var(--gob-guinda); }
 .pin-publico-media { background: var(--gob-dorado); }
 .pin-publico-baja { background: #98989a; }
 
-/* "Ubicarme" mientras espera al GPS */
-.btn-ubicarme:disabled { cursor: progress; opacity: 0.85; transform: none; }
-.btn-ubicarme__giro { width: 16px; height: 16px; border: 2px solid var(--gob-dorado); border-top-color: var(--gob-guinda); border-radius: 50%; animation: ubicarme-giro 0.7s linear infinite; }
-@keyframes ubicarme-giro { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .btn-ubicarme__giro { animation-duration: 2s; } }
+/* El aviso de «Ubicarme» va debajo del botón (que está arriba a la derecha) para no taparlo */
+.map-container .toast-aviso { top: 128px; }

@@ -3,7 +3,7 @@
 
 .rastreo {
   position: absolute;
-  inset: 0;
+  top: 0; right: 0; bottom: 0; left: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -31,7 +31,8 @@
 
 /* Botones del kit en guinda */
 .rastreo .btn-primary { background-color: var(--gob-guinda); border-color: var(--gob-guinda); color: #fff; }
-.rastreo .btn-primary:hover, .rastreo .btn-primary:focus-visible { background-color: #7a1a32; border-color: #7a1a32; color: #fff; }
+.rastreo .btn-primary:hover { background-color: #7a1a32; border-color: #7a1a32; color: #fff; }
+.rastreo .btn-primary:focus-visible { background-color: #7a1a32; border-color: #7a1a32; color: #fff; }
 .rastreo .btn-primary:disabled { background-color: var(--gob-guinda); border-color: var(--gob-guinda); opacity: 0.6; }
 .rastreo .btn-outline-secondary { color: var(--gob-gris-oscuro); border-color: #999; background: #fff; }
 .rastreo .btn-outline-secondary:hover { background: var(--gob-gris-claro); color: var(--gob-gris-oscuro); }

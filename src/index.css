@@ -45,6 +45,54 @@ body {
   background-color: #7a1a32;
 }
 /* Indicador de carga de rutas (mismo aspecto que el shell prerenderizado de index.html) */
-.cargando-ruta { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; font-size: 14px; background: #ebe7e4; }
+.cargando-ruta { position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; font-size: 14px; background: #ebe7e4; }
 .cargando-ruta__giro { width: 36px; height: 36px; border: 4px solid #d9cdb8; border-top-color: var(--gob-guinda); border-radius: 50%; animation: cargando-giro 0.8s linear infinite; }
 @keyframes cargando-giro { to { transform: rotate(360deg); } }
+
+/* ---- Respaldo si el kit gob.mx aún no cargó (o lo bloquea una red/extensión) ---- */
+:where(.sheet .form-control, .rastreo .form-control) {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.4;
+  color: #212529;
+  background-color: #fff;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+:where(.sheet .btn, .rastreo .btn, .terminos-pagina .btn) {
+  display: inline-block;
+  font-family: inherit;
+  line-height: 1.4;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+:where(.sheet .btn-outline-secondary, .rastreo .btn-outline-secondary) { border-color: #6f7271; }
+:where(.sheet .btn-outline-danger, .rastreo .btn-outline-danger) { color: #b3261e; border-color: #b3261e; }
+:where(.sheet .alert, .rastreo .alert) { padding: 10px 14px; border: 1px solid transparent; border-radius: 6px; }
+:where(.sheet .alert-danger) { color: #7a1a32; background-color: #fde8ec; border-color: #f4b6c2; }
+:where(.sheet .alert-warning) { color: #664d03; background-color: #fff3cd; border-color: #ffe69c; }
+:where(.sheet .mb-3) { margin-bottom: 16px; }
+:where(.sheet .w-100) { width: 100%; }
+:where(.sheet .d-block) { display: block; }
+
+/* Botones propios: sin el aspecto nativo de iOS (ya fijan fondo/borde); no cambia el diseño actual */
+:where(.btn-generar-reporte, .btn-ubicarme, .rf-folio__copiar, .sheet__cerrar, .pin-publico, .toast-aviso button, .marcador) {
+  -webkit-appearance: none;
+  appearance: none;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+:where(.visually-hidden) { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }

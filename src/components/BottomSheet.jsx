@@ -90,14 +90,25 @@ export default function BottomSheet({ titulo, onClose, bloqueante = false, child
   function alEnfocar(e) {
     const el = e.target;
     if (!['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return;
-    setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300);
+    // Con el teclado de iOS abierto, iOS ya desplaza por su cuenta: solo se asegura que el campo quede visible
+    setTimeout(() => el.scrollIntoView(
+      document.documentElement.classList.contains('teclado-abierto')
+        ? { block: 'nearest' }
+        : { block: 'center', behavior: 'smooth' },
+    ), 300);
   }
 
   return (
     <div
       ref={fondoRef}
       className={`sheet-fondo${cerrando ? ' is-cerrando' : ''}${bloqueante ? ' sheet-fondo--bloqueante' : ''}`}
-      onPointerDown={(e) => { if (!bloqueante && e.target === e.currentTarget) cerrar(); }}
+      onPointerDown={(e) => {
+        if (bloqueante || e.target !== e.currentTarget) return;
+        // Con un campo enfocado, el primer toque fuera solo baja el teclado (no descarta lo escrito)
+        const activo = document.activeElement;
+        if (activo && /^(INPUT|TEXTAREA|SELECT)$/.test(activo.tagName)) { activo.blur(); return; }
+        cerrar();
+      }}
     >
       <section
         ref={hojaRef}

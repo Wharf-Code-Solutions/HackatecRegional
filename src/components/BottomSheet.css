@@ -36,7 +36,6 @@
   border-top: 4px solid var(--gob-dorado);
   box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.25);
   outline: none;
-  will-change: transform;
   animation: sheet-sube var(--sheet-entrada) var(--curva);
   transition: transform var(--sheet-salida) var(--curva);
 }
@@ -80,6 +79,13 @@
   .sheet__cuerpo { touch-action: auto; }
 }
 @keyframes sheet-lateral { from { transform: translateX(-24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* Teclado virtual abierto (móvil): la hoja se acorta para quedar sobre el teclado y bajo el borde superior visible.
+   Sin la clase html.teclado-abierto nada de esto aplica. */
+@media (max-width: 767px) {
+  html.teclado-abierto .sheet-fondo { top: max(60px, var(--vv-top, 0px)); bottom: var(--teclado, 0px); }
+  html.teclado-abierto .sheet { max-height: 100%; }
+}
 
 /* Hoja bloqueante (términos): sin cierre ni arrastre; el contenido reparte el scroll */
 .sheet--bloqueante .sheet__asa { display: none; }

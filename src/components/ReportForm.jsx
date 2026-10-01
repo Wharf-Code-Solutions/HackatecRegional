@@ -5,7 +5,7 @@ import { reducirParaAnalizar, subirFoto } from '../lib/subirFoto'
 import { analizarFoto, folio } from '../lib/api'
 import {
   MAX_DESCRIPCION, MAX_NOMBRE, TIPOS_FOTO,
-  validarFoto, validarFormulario,
+  esHeic, validarFoto, validarFormulario,
 } from '../lib/validar'
 import BottomSheet from './BottomSheet'
 import CategoriaIcono from './CategoriaIcono'
@@ -15,6 +15,7 @@ import './ReportForm.css'
 const ORDEN_CAMPOS = ['foto', 'categoria', 'descripcion', 'nombre', 'email', 'ubicacion']
 const CONFIANZA_ALTA = 0.6 // por debajo, la sugerencia de la foto no bloquea otra elección del usuario
 const SIN_ANALISIS = { estado: 'idle', slug: null, confianza: 0 } // idle | analizando | ok | no_disponible
+const MODO_DEBUG = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('debug')
 const ID_CAMPO = { categoria: 'rf-categoria', descripcion: 'rf-descripcion', foto: 'rf-foto', nombre: 'rf-nombre', email: 'rf-email' }
 
 async function copiarAlPortapapeles(texto) {
@@ -28,6 +29,7 @@ async function copiarAlPortapapeles(texto) {
     ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0'
     document.body.appendChild(ta)
     ta.select()
+    ta.setSelectionRange(0, ta.value.length) // iOS ignora select() en un textarea; esto sí copia
     try { return document.execCommand('copy') } finally { ta.remove() }
   }
 }
@@ -173,13 +175,32 @@ export default function ReportForm({ lat, lon, onClose, onSuccess }) {
     const id = ++idAnalisis.current
     setFoto(archivo)
     setAnalisis({ ...SIN_ANALISIS, estado: 'analizando' })
+    // Dos pasos separados para saber cuál falla (en Safari suele ser la compresión) sin romper el envío del reporte
     let veredicto
+    let imagen = null
     try {
-      veredicto = await analizarFoto(await reducirParaAnalizar(archivo))
-    } catch {
-      veredicto = { estado: 'no_disponible' } // si el análisis falla, el reporte sigue su curso
+      imagen = await reducirParaAnalizar(archivo)
+    } catch (err) {
+      console.warn('analizar-foto: no se pudo preparar la imagen', err)
+      if (esHeic(archivo)) { // este navegador no sabe abrir HEIC: tampoco podría subirla después
+        setFoto(null)
+        setAnalisis(SIN_ANALISIS)
+        setErrorFoto('No pudimos leer esa foto (formato HEIC). Usa "Tomar foto" o elige una imagen JPG o PNG.')
+        return
+      }
+      veredicto = { estado: 'no_disponible', razon: 'compresion' }
+    }
+    if (imagen) {
+      try {
+        veredicto = await analizarFoto(imagen)
+      } catch (err) {
+        console.warn('analizar-foto: falló la solicitud', err?.status, err?.message)
+        veredicto = { estado: 'no_disponible', razon: err?.motivo || 'error' }
+      }
     }
     if (id !== idAnalisis.current) return // ya se eligió otra foto o se quitó esta
+    if (!veredicto) veredicto = { estado: 'no_disponible', razon: 'respuesta_vacia' }
+    if (veredicto.estado === 'no_disponible') console.warn('analizar-foto no disponible:', veredicto.razon)
 
     if (veredicto.estado === 'rechazada') {
       setFoto(null)
@@ -188,11 +209,12 @@ export default function ReportForm({ lat, lon, onClose, onSuccess }) {
       return
     }
     if (veredicto.estado !== 'ok') {
-      setAnalisis({ ...SIN_ANALISIS, estado: 'no_disponible' })
+      setAnalisis({ ...SIN_ANALISIS, estado: 'no_disponible', razon: veredicto.razon || null })
       return
     }
     setAnalisis({ estado: 'ok', slug: veredicto.categoria_slug, confianza: veredicto.confianza ?? 0 })
     const cat = categorias.find((c) => c.slug === veredicto.categoria_slug)
+    if (!cat && !categoriaId) setAnalisis({ estado: 'ok', slug: null, confianza: veredicto.confianza ?? 0, sinTipo: true })
     if (cat && !categoriaId) { // no pisa una elección del usuario
       setCategoriaId(String(cat.id))
       setSugerida(true)
@@ -321,7 +343,13 @@ export default function ReportForm({ lat, lon, onClose, onSuccess }) {
           <div className="rf-analisis" role="status" aria-live="polite">
             {analizando && <span className="rf-analisis__texto"><i className="rf-analisis__giro" />Analizando foto…</span>}
             {analisis.estado === 'no_disponible' && (
-              <span className="rf-analisis__aviso">No pudimos verificar la foto automáticamente; elige el tipo de problema.</span>
+              <span className="rf-analisis__aviso">
+                No pudimos verificar la foto automáticamente; elige el tipo de problema.
+                {MODO_DEBUG && analisis.razon ? ` (motivo: ${analisis.razon})` : ''}
+              </span>
+            )}
+            {analisis.estado === 'ok' && analisis.sinTipo && !categoriaId && (
+              <span className="rf-analisis__aviso">No identificamos el tipo de problema en la foto; elígelo tú.</span>
             )}
           </div>
         </div>

@@ -14,7 +14,7 @@
 .sheet .btn { min-height: 44px; font-size: 15px; font-weight: 600; padding: 10px 16px; border-radius: 6px; }
 .sheet .btn-sm { min-height: 36px; font-size: 13px; padding: 6px 12px; }
 .sheet .btn-primary { background-color: var(--gob-guinda); border-color: var(--gob-guinda); color: #fff; }
-.sheet .btn-primary:hover,
+.sheet .btn-primary:hover { background-color: #7a1a32; border-color: #7a1a32; color: #fff; }
 .sheet .btn-primary:focus-visible { background-color: #7a1a32; border-color: #7a1a32; color: #fff; }
 .sheet .btn-primary:disabled { background-color: var(--gob-guinda); border-color: var(--gob-guinda); color: #fff; opacity: 0.6; }
 .sheet .btn-outline-secondary { color: var(--gob-gris-oscuro); border-color: #999; background: #fff; }
@@ -51,8 +51,8 @@
   transition: border-color 0.15s, background-color 0.15s, transform 0.1s;
 }
 .categoria:active { transform: scale(0.97); }
-.categoria input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
-.categoria:hover { border-color: var(--gob-dorado); }
+.categoria input { position: absolute; opacity: 0; top: 0; right: 0; bottom: 0; left: 0; margin: 0; cursor: pointer; }
+@media (hover: hover) { .categoria:hover { border-color: var(--gob-dorado); } }
 .categoria.is-selected { border-color: var(--gob-guinda); background: var(--gob-guinda); color: #fff; }
 .categoria:focus-within { outline: 3px solid var(--gob-dorado); outline-offset: 2px; }
 

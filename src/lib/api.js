@@ -7,16 +7,20 @@ async function request(ruta, opciones = {}) {
       ...opciones,
       headers: { 'Content-Type': 'application/json', ...opciones.headers },
     })
-  } catch {
-    throw Object.assign(new Error('No hay conexión con el servidor'), { status: 0 })
+  } catch (e) {
+    if (e?.name === 'AbortError') throw Object.assign(new Error('La solicitud tardó demasiado'), { status: 0, motivo: 'timeout' })
+    throw Object.assign(new Error('No hay conexión con el servidor'), { status: 0, motivo: 'red' })
   }
 
-  const data = await res.json().catch(() => null)
+  // Un 504/413 de Vercel no trae JSON: se conserva el texto para poder diagnosticar
+  const texto = await res.text().catch(() => '')
+  let data = null
+  try { data = texto ? JSON.parse(texto) : null } catch { /* respuesta que no es JSON */ }
   if (!res.ok) {
     if (res.status >= 500 && res.status !== 503) {
-      throw Object.assign(new Error('Error del servidor, intenta de nuevo'), { status: res.status })
+      throw Object.assign(new Error('Error del servidor, intenta de nuevo'), { status: res.status, motivo: `http_${res.status}` })
     }
-    throw Object.assign(new Error(typeof data?.detail === 'string' ? data.detail : 'Datos inválidos'), { status: res.status })
+    throw Object.assign(new Error(typeof data?.detail === 'string' ? data.detail : 'Datos inválidos'), { status: res.status, motivo: `http_${res.status}` })
   }
   return data
 }
@@ -35,8 +39,20 @@ export const getEstadisticas = (params = {}) => {
 }
 
 // Clasifica la foto con visión: { estado: 'ok'|'rechazada'|'no_disponible', categoria_slug, confianza, motivo }
-export const analizarFoto = (imagenB64) =>
-  request('/api/reportes/analizar-foto', { method: 'POST', body: JSON.stringify({ imagen_b64: imagenB64 }) })
+// Con tiempo máximo: si el servidor no responde, el formulario no se queda en "Analizando…"
+export const analizarFoto = async (imagenB64, { timeoutMs = 20000 } = {}) => {
+  const control = new AbortController()
+  const temporizador = setTimeout(() => control.abort(), timeoutMs)
+  try {
+    return await request('/api/reportes/analizar-foto', {
+      method: 'POST',
+      body: JSON.stringify({ imagen_b64: imagenB64 }),
+      signal: control.signal,
+    })
+  } finally {
+    clearTimeout(temporizador)
+  }
+}
 
 // Pines del mapa ciudadano: endpoint público, solo activas y sin datos personales
 export const getIncidenciasPublicas = () => request('/api/incidencias')

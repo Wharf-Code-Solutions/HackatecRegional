@@ -21,6 +21,7 @@
   animation: toast-entra 0.25s ease-out;
 }
 .toast-success { background: #e5efec; border-color: var(--gob-verde); color: var(--gob-verde); }
+.toast-info { background: #f4f4f4; border-color: var(--gob-dorado); color: var(--gob-gris-oscuro); }
 .toast-danger { background: #fde8ec; border-color: var(--gob-guinda); color: #7a1a32; }
 .toast-aviso span { flex: 1; }
 .toast-aviso button { border: 0; background: none; padding: 0 4px; font-size: 22px; line-height: 1; color: inherit; cursor: pointer; }
