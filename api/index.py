@@ -165,32 +165,16 @@ def obtener_incidencias(estado: Optional[str] = None):
 
     try:
         estados_filtro = [estado] if estado else ["pendiente", "en_proceso"]
+        # La vista ya entrega lat/lon, categoria_nombre y foto_principal aplanados
         response = (
-            supabase.table("incidencias")
-            .select("id, estado, prioridad, reportes_count, created_at, atendida_at, motivo_rechazo, categorias(slug, nombre), reportes(foto_url, email_ciudadano)")
+            supabase.table("v_incidencias_admin")
+            .select("*")
             .in_("estado", estados_filtro)
             .order("prioridad", desc=True)
             .order("created_at", desc=False)
             .execute()
         )
-        resultado = []
-        for inc in response.data:
-            cat  = inc.get("categorias") or {}
-            reps = inc.get("reportes") or []
-            fotos = [r["foto_url"] for r in reps if r.get("foto_url")]
-            resultado.append({
-                "id":               inc["id"],
-                "categoria":        cat.get("slug"),
-                "categoria_nombre": cat.get("nombre"),
-                "estado":           inc["estado"],
-                "prioridad":        inc["prioridad"],
-                "reportes_count":   inc["reportes_count"],
-                "created_at":       inc["created_at"],
-                "atendida_at":      inc.get("atendida_at"),
-                "motivo_rechazo":   inc.get("motivo_rechazo"),
-                "foto_principal":   fotos[0] if fotos else None,
-            })
-        return resultado
+        return response.data
     except HTTPException:
         raise
     except Exception as e:
