@@ -123,7 +123,31 @@ class ReporteNuevo(BaseModel):
     @field_validator("descripcion", "foto_url", "nombre_ciudadano", mode="before")
     @classmethod
     def limpiar_vacios(cls, v):
-        if isinstance(v, str) and v.strip() == "": return None
+        if isinstance(v, str):
+            v = v.strip()
+            if v == "": return None
+        return v
+
+    @field_validator("nombre_ciudadano")
+    @classmethod
+    def validar_nombre(cls, v):
+        if v is None:
+            return v
+        if len(v) < 2:
+            raise ValueError("El nombre debe tener al menos 2 caracteres.")
+        if not all(c.isalpha() or c in " '.-" for c in v) or sum(c.isalpha() for c in v) < 2:
+            raise ValueError("El nombre solo puede contener letras, espacios, apóstrofo, punto y guion.")
+        return v
+
+    @field_validator("foto_url")
+    @classmethod
+    def validar_foto(cls, v):
+        # Solo se aceptan fotos subidas al bucket público de este proyecto de Supabase
+        if v is None or not SUPABASE_URL:
+            return v
+        prefijo = f"{SUPABASE_URL.rstrip('/')}/storage/v1/object/public/reportes-fotos/"
+        if not v.startswith(prefijo):
+            raise ValueError("La foto debe subirse al almacenamiento de la plataforma.")
         return v
 
 
@@ -169,6 +193,24 @@ def obtener_categorias():
         return res.data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/incidencias", tags=["Ciudadano"])
+def incidencias_publicas():
+    """Pines del mapa ciudadano: solo activas y SIN datos personales
+    (nada de id, fotos, direcciones, nombres, correos ni descripciones)."""
+    try:
+        res = (
+            supabase.table("v_incidencias_admin")
+            .select("categoria, categoria_nombre, estado, prioridad, reportes_count, lat, lon")
+            .in_("estado", ["pendiente", "en_proceso"])
+            .order("prioridad", desc=True)
+            .execute()
+        )
+        return res.data
+    except Exception as e:
+        print(f"ERROR GET /api/incidencias: {e}")
+        raise HTTPException(status_code=500, detail="Error interno al obtener las incidencias.")
 
 
 @app.post("/api/reportes", tags=["Ciudadano"], status_code=201)

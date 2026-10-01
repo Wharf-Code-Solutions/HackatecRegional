@@ -26,6 +26,9 @@ const patch = (ruta, cuerpo) =>
 export const getIncidencias = (estado) =>
   request(estado ? `/api/admin/incidencias?estado=${estado}` : '/api/admin/incidencias')
 
+// Pines del mapa ciudadano: endpoint público, solo activas y sin datos personales
+export const getIncidenciasPublicas = () => request('/api/incidencias')
+
 export const getDetalle = (id) => request(`/api/admin/incidencias/${id}`)
 
 export const marcarEnProceso = (id) => patch('/api/admin/en-proceso', { incidencia_id: id })

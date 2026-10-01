@@ -78,6 +78,12 @@ El formulario envía `nombre_ciudadano` (obligatorio en la interfaz, opcional en
 - Backend: el cliente de Supabase usa HTTP/1.1 (`httpx.Client(http2=False)`); con HTTP/2 las peticiones simultáneas fallaban con `ConnectionTerminated`.
 - Local: `API_TARGET=http://localhost:8000` en `.env` apunta el proxy de Vite a un FastAPI local (`uvicorn index:app --port 8000` dentro de `api/`).
 
+## Vista ciudadana móvil
+- `BottomSheet` (`src/components/BottomSheet.jsx`): hoja inferior con animación; se cierra deslizando hacia abajo desde el asa/cabecera, con tap en el fondo, × o Esc. El cuerpo hace scroll con `overscroll-behavior: contain` para no mover el mapa. En ≥768 px es una tarjeta lateral.
+- Validación (`src/lib/validar.js`): nombre (2–100, solo letras/espacios/`'.-`), correo válido si se escribe, descripción ≤ 500, tipo de problema obligatorio, foto JPG/PNG/WebP ≤ 15 MB; mensajes bajo cada campo. El backend repite la validación (nombre, foto solo del bucket del proyecto).
+- Aviso de éxito con folio corto de 8 caracteres y botón "Copiar".
+- Pines públicos: `GET /api/incidencias` devuelve solo activas (pendiente, en proceso) con `categoria, categoria_nombre, estado, prioridad, reportes_count, lat, lon`. **Nunca** id, foto, dirección, nombre, correo ni descripción. La ficha del pin muestra solo esos datos.
+
 ## 6. Flujo de ramas
 - `main` = producción (Vercel). Solo entra código por PR.
 - `feat/*` = una rama por módulo, creada desde `main` actualizado. Cada push genera un preview en Vercel.

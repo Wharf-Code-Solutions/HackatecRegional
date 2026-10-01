@@ -1,0 +1,91 @@
+/* Hoja inferior (móvil) / tarjeta lateral (escritorio). El kit fija html{font-size:10px}: todo en px. */
+
+.sheet-fondo {
+  --sheet-entrada: 320ms;
+  --sheet-salida: 240ms;
+  --curva: cubic-bezier(0.22, 0.9, 0.3, 1);
+  position: fixed;
+  top: 60px; /* debajo del NavBar */
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 500;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(0, 0, 0, 0.45);
+  /* el fondo captura los gestos: no pasan al mapa de atrás */
+  touch-action: none;
+  overscroll-behavior: contain;
+  animation: sheet-fondo-in var(--sheet-entrada) ease-out;
+  transition: opacity var(--sheet-salida) ease-in;
+}
+.sheet-fondo.is-cerrando { opacity: 0; }
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: calc(100vh - 60px - 16px);
+  max-height: calc(100dvh - 60px - 16px);
+  background: #fff;
+  color: var(--gob-gris-oscuro);
+  font-family: var(--font-gob);
+  font-size: 15px;
+  line-height: 1.4;
+  border-radius: 16px 16px 0 0;
+  border-top: 4px solid var(--gob-dorado);
+  box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.25);
+  outline: none;
+  will-change: transform;
+  animation: sheet-sube var(--sheet-entrada) var(--curva);
+  transition: transform var(--sheet-salida) var(--curva);
+}
+.sheet.is-cerrando { transform: translateY(100%); }
+
+.sheet__cabecera {
+  flex-shrink: 0;
+  padding: 8px 16px 4px;
+  cursor: grab;
+  touch-action: none; /* el arrastre vertical es nuestro, no del navegador */
+  user-select: none;
+}
+.sheet__cabecera:active { cursor: grabbing; }
+.sheet__asa { display: block; width: 44px; height: 5px; margin: 0 auto 8px; border-radius: 3px; background: #c8c8c8; }
+.sheet__titulo { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sheet__titulo h2 { margin: 0; font-size: 20px; line-height: 1.2; color: var(--gob-guinda); }
+.sheet__cerrar { min-width: 44px; min-height: 44px; margin-right: -8px; border: 0; background: none; font-size: 30px; line-height: 1; color: var(--gob-gris-oscuro); cursor: pointer; }
+
+/* Solo el cuerpo hace scroll, y no lo encadena al mapa ni a la página */
+.sheet__cuerpo {
+  flex: 1;
+  min-height: 0;
+  padding: 4px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  scroll-padding-bottom: 24px;
+}
+
+@keyframes sheet-sube { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes sheet-fondo-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* Tablet / escritorio: tarjeta lateral izquierda; el mapa sigue movible */
+@media (min-width: 768px) {
+  .sheet-fondo { align-items: flex-start; justify-content: flex-start; padding: 16px; background: none; pointer-events: none; animation: none; }
+  .sheet { width: 380px; max-height: 100%; border-radius: 12px; pointer-events: auto; animation: sheet-lateral var(--sheet-entrada) var(--curva); }
+  .sheet.is-cerrando { transform: translateX(-24px); opacity: 0; transition: transform var(--sheet-salida) ease-in, opacity var(--sheet-salida) ease-in; }
+  .sheet__cabecera { cursor: default; }
+  .sheet__asa { display: none; }
+  .sheet__cuerpo { touch-action: auto; }
+}
+@keyframes sheet-lateral { from { transform: translateX(-24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-fondo, .sheet { animation: none; transition: none; }
+}
+
+/* Ficha pública de un pin del mapa */
+.ficha-pin { margin: 8px 0 12px; padding: 0; list-style: none; font-size: 15px; }
+.ficha-pin li { padding: 8px 0; border-bottom: 1px solid #eee; }
+.ficha-pin__nota { margin: 0; font-size: 13px; color: #666; }

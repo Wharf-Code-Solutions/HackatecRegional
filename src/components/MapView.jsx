@@ -1,11 +1,11 @@
 import { useState, useRef } from 'react';
-import Map from 'react-map-gl/mapbox';
+import Map, { Marker } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import './MapView.css';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 
-export default function MapView({ onLocationChange, onGenerarReporte }) {
+export default function MapView({ onLocationChange, onGenerarReporte, incidencias = [], onSeleccionarIncidencia }) {
   const mapRef = useRef();
   
   const [viewState, setViewState] = useState({
@@ -59,7 +59,21 @@ export default function MapView({ onLocationChange, onGenerarReporte }) {
         mapStyle="mapbox://styles/mapbox/streets-v12"
         mapboxAccessToken={MAPBOX_TOKEN}
         style={{ width: '100%', height: '100%' }}
-      />
+      >
+        {/* Incidencias activas de otros ciudadanos (sin datos personales) */}
+        {incidencias.map((inc, i) => (
+          <Marker key={`${inc.lat},${inc.lon},${inc.categoria},${i}`} longitude={inc.lon} latitude={inc.lat} anchor="center">
+            <button
+              type="button"
+              className={`pin-publico pin-publico-${inc.prioridad >= 7 ? 'alta' : inc.prioridad >= 4 ? 'media' : 'baja'}`}
+              aria-label={`${inc.categoria_nombre}, ${inc.reportes_count} reporte(s)`}
+              onClick={() => onSeleccionarIncidencia?.(inc)}
+            >
+              {inc.reportes_count > 1 ? inc.reportes_count : ''}
+            </button>
+          </Marker>
+        ))}
+      </Map>
 
       {/* Marcador Central Fijo */}
       <div className="map-marker-container">

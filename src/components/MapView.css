@@ -48,6 +48,7 @@
   cursor: pointer;
   box-shadow: 0 6px 16px rgba(0,0,0,0.3);
   z-index: 20;
+  white-space: nowrap; /* en pantallas angostas el texto se partía en dos líneas */
   transition: background-color 0.3s, transform 0.2s;
   
   /* Flexbox para alinear el icono y el texto */
@@ -87,3 +88,25 @@
   background-color: var(--gob-gris-claro);
   transform: scale(1.05);
 }
+/* Pines públicos de incidencias activas: más chicos que el pin central, sin datos personales */
+.pin-publico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+  color: #fff;
+  font-family: var(--font-gob);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.pin-publico:hover, .pin-publico:focus-visible { transform: scale(1.2); }
+.pin-publico-alta { background: var(--gob-guinda); }
+.pin-publico-media { background: var(--gob-dorado); }
+.pin-publico-baja { background: #98989a; }
