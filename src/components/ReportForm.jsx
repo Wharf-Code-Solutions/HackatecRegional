@@ -60,6 +60,10 @@ function ReporteEnviado({ resultado, onOtro, onClose }) {
           : 'Registramos un nuevo problema. Gracias por ayudar a mejorar tu ciudad.'}
       </p>
 
+      {resultado.correo === 'enviado' && (
+        <p className="rf-exito__correo">Te enviamos un correo de confirmación.</p>
+      )}
+
       <div className="rf-folio">
         <div>
           <span className="rf-folio__etiqueta">Folio</span>

@@ -4,15 +4,56 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>hackatecregional</title>
+    <meta name="theme-color" content="#0b231e" />
+    <title>Reportes Urbanos</title>
+
+    <!-- Conexiones tempranas: tipografías, kit gob.mx y mapa -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&family=Noto+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-    <!-- Kit oficial gob.mx v3 (solo CSS: incluye Bootstrap 5.3) -->
-    <link rel="stylesheet" href="https://framework-gb.cdn.gob.mx/gm/v3/assets/styles/main.css">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://framework-gb.cdn.gob.mx" crossorigin>
+    <link rel="preconnect" href="https://api.mapbox.com" crossorigin>
+    <link rel="dns-prefetch" href="https://events.mapbox.com">
+
+    <!-- Fuentes y kit oficial gob.mx v3 (CSS): no bloquean el primer pintado -->
+    <link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&family=Noto+Sans:wght@400;600;700&display=swap">
+    <link rel="stylesheet" media="print" onload="this.media='all'" href="https://framework-gb.cdn.gob.mx/gm/v3/assets/styles/main.css">
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&family=Noto+Sans:wght@400;600;700&display=swap">
+      <link rel="stylesheet" href="https://framework-gb.cdn.gob.mx/gm/v3/assets/styles/main.css">
+    </noscript>
+
+    <!-- CSS crítico del shell prerenderizado (lo que se ve antes de que cargue React) -->
+    <style>
+      html, body { margin: 0; padding: 0; }
+      body { font-family: 'Noto Sans', 'Montserrat', Arial, sans-serif; color: #545454; background: #ebe7e4; }
+      .shell-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; display: flex; align-items: center; justify-content: space-between; height: 60px; padding: 0 24px; box-sizing: border-box; background: #0b231e; color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,.2); }
+      .shell-nav > div { display: flex; align-items: center; gap: 16px; }
+      .shell-nav img { height: 32px; }
+      .shell-nav i { display: block; height: 32px; margin: 0 8px; border-left: 1px solid #bc955c; }
+      .shell-nav b { font-size: 16px; font-weight: 600; letter-spacing: .5px; }
+      .shell-links { display: flex; gap: 24px; font-size: 14px; }
+      .shell-cargando { position: fixed; top: 60px; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; font-size: 14px; }
+      .shell-spinner { width: 36px; height: 36px; border: 4px solid #d9cdb8; border-top-color: #9d2449; border-radius: 50%; animation: shell-giro .8s linear infinite; }
+      @keyframes shell-giro { to { transform: rotate(360deg); } }
+      @media (max-width: 600px) { .shell-nav { padding: 0 12px; } .shell-nav img { height: 24px; } .shell-nav i { height: 24px; margin: 0 4px; } .shell-nav b { display: none; } .shell-links { gap: 12px; font-size: 13px; } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Prerender estático: se ve al instante y React lo reemplaza al arrancar -->
+      <header class="shell-nav">
+        <div>
+          <img src="https://framework-gb.cdn.gob.mx/landing/img/logoheader.svg" alt="Gobierno de México">
+          <i></i>
+          <b>Reportes Urbanos</b>
+        </div>
+        <nav class="shell-links"><span>Panel Funcionario</span><span>Rastreo de Reportes</span></nav>
+      </header>
+      <div class="shell-cargando" role="status">
+        <div class="shell-spinner"></div>
+        <span>Cargando mapa…</span>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

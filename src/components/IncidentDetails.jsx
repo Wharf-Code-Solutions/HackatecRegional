@@ -56,8 +56,10 @@ export default function IncidentDetails({ id, resumen, onClose, onCambio }) {
       const res = await fn();
       setConfirmando(null);
       setMotivo('');
-      const extra = nombre === 'resolver' && res?.correos_notificados
-        ? ` Se notificó a ${res.correos_notificados.length} ciudadano(s).` : '';
+      const enviados = res?.correos_notificados?.length ?? 0;
+      const fallidos = res?.correos_fallidos ?? 0;
+      const extra = (enviados ? ` Se avisó por correo a ${enviados} ciudadano(s).` : '')
+        + (fallidos ? ` No se pudo enviar ${fallidos} correo(s).` : '');
       onCambio(`${mensaje}${extra}`);
       setVersion((v) => v + 1);
     } catch (e) {

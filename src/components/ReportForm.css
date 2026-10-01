@@ -65,6 +65,8 @@
 .rf-exito__marca { fill: none; stroke: var(--gob-verde); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 40; stroke-dashoffset: 40; animation: rf-trazo 0.35s 0.4s ease-out forwards; }
 @keyframes rf-trazo { to { stroke-dashoffset: 0; } }
 
+.rf-exito__correo { font-weight: 600; color: var(--gob-verde); }
+
 .rf-folio {
   display: flex;
   align-items: center;

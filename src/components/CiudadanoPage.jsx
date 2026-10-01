@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import MapView from './MapView';
-import ReportForm from './ReportForm';
 import BottomSheet from './BottomSheet';
 import { getIncidenciasPublicas, nivelPrioridad } from '../lib/api';
+
+// El formulario (y supabase-js) se descarga al abrirlo, no en la carga inicial
+const ReportForm = lazy(() => import('./ReportForm'));
 
 const REFRESCO_MS = 60000;
 const ETIQUETA_ESTADO = { pendiente: 'Pendiente de atención', en_proceso: 'En proceso de atención' };
@@ -53,12 +55,14 @@ export default function CiudadanoPage() {
       />
 
       {mostrarForm && (
-        <ReportForm
-          lat={ubicacionReporte?.lat}
-          lon={ubicacionReporte?.lon}
-          onClose={() => setMostrarForm(false)}
-          onSuccess={() => setTick((n) => n + 1)}
-        />
+        <Suspense fallback={null}>
+          <ReportForm
+            lat={ubicacionReporte?.lat}
+            lon={ubicacionReporte?.lon}
+            onClose={() => setMostrarForm(false)}
+            onSuccess={() => setTick((n) => n + 1)}
+          />
+        </Suspense>
       )}
 
       {pinSeleccionado && !mostrarForm && (

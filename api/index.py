@@ -1,6 +1,11 @@
+import html
 import os
+import smtplib
+import ssl
 import time
 from collections import defaultdict
+from email.message import EmailMessage
+from email.utils import formataddr
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -86,18 +91,177 @@ def check_rate_limit(ip: str) -> None:
 
 
 # ─────────────────────────────────────────────
-# HELPER: Simulación de correo (Fase 4)
-# Para conectar SendGrid/Resend reemplaza el print.
+# CORREOS POR ETAPA (SMTP)
+# Variables de entorno (NUNCA en el repositorio): SMTP_USER, SMTP_PASSWORD
+# Opcionales: SMTP_HOST (smtp.gmail.com), SMTP_PORT (465), MAIL_FROM_NAME
+# Sin credenciales, los correos se omiten y el resto de la API funciona igual.
 # ─────────────────────────────────────────────
-def enviar_correos_resolucion(incidencia_id: str, correos: list) -> None:
-    if not correos:
-        return
-    for email in correos:
-        print(
-            f"[MOCK EMAIL] Para: {email} | "
-            f"Asunto: Tu reporte fue atendido | "
-            f"Incidencia: {incidencia_id}"
-        )
+SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", "465"))
+SMTP_USER = os.environ.get("SMTP_USER")
+# Las contraseñas de aplicación de Google se muestran con espacios ("abcd efgh ..."); se usan sin ellos
+SMTP_PASSWORD = (os.environ.get("SMTP_PASSWORD") or "").replace(" ", "")
+MAIL_FROM_NAME = os.environ.get("MAIL_FROM_NAME", "Reportes Urbanos")
+MAX_DESTINATARIOS = 50
+
+GUINDA, DORADO, VERDE = "#9D2449", "#BC955C", "#13322E"
+
+# etapa: (asunto, título del banner, mensaje en HTML, color del banner)
+ETAPAS = {
+    "recibido": (
+        "Recibimos tu reporte",
+        "¡Recibimos tu reporte!",
+        "Tu reporte fue registrado correctamente y será revisado por las autoridades municipales.",
+        GUINDA,
+    ),
+    "en_proceso": (
+        "Tu reporte está en proceso",
+        "Tu reporte está en proceso",
+        "Una cuadrilla del Ayuntamiento ya está atendiendo la incidencia que reportaste.",
+        GUINDA,
+    ),
+    "atendida": (
+        "¡Tu reporte ha sido atendido!",
+        "¡Tu reporte ha sido atendido!",
+        "Te informamos que la incidencia que reportaste ha sido marcada como <strong>resuelta</strong> "
+        "por las autoridades municipales.",
+        VERDE,
+    ),
+}
+PASOS = [("recibido", "Recibido"), ("en_proceso", "En proceso"), ("atendida", "Atendido")]
+
+
+def _folio(incidencia_id: str) -> str:
+    return str(incidencia_id)[:8].upper()
+
+
+def construir_correo(etapa: str, nombre: Optional[str], incidencia_id: str, categoria: Optional[str]):
+    """Devuelve (asunto, html, texto) con el estilo del kit gob.mx (CSS en línea, apto para clientes de correo)."""
+    asunto, titulo, mensaje, color = ETAPAS[etapa]
+    saludo = f"Hola {html.escape(nombre)}," if nombre else "Hola ciudadano,"
+    folio = _folio(incidencia_id)
+    cat = html.escape(categoria) if categoria else None
+
+    pasos_html = " &rsaquo; ".join(
+        f'<strong style="color:{color};">{etiqueta}</strong>' if clave == etapa
+        else f'<span style="color:#98989A;">{etiqueta}</span>'
+        for clave, etiqueta in PASOS
+    )
+    categoria_html = (
+        f'<p style="margin:0 0 6px;">Tipo de problema: <strong>{cat}</strong></p>' if cat else ""
+    )
+
+    cuerpo = f"""<!doctype html>
+<html lang="es">
+  <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+  <body style="margin:0; padding:20px; background:#f4f4f4; font-family:'Noto Sans', Arial, sans-serif; color:#545454;">
+    <div style="max-width:600px; margin:0 auto; background:#ffffff; border:1px solid #dddddd; border-radius:8px; overflow:hidden;">
+
+      <!-- Banner superior -->
+      <div style="background-color:{color}; color:#ffffff; padding:22px 20px; text-align:center; border-bottom:4px solid {DORADO};">
+        <h2 style="margin:0; font-size:22px; line-height:1.3;">{titulo}</h2>
+      </div>
+
+      <!-- Cuerpo -->
+      <div style="padding:22px 24px; font-size:15px; line-height:1.5;">
+        <p style="margin:0 0 12px;">{saludo}</p>
+        <p style="margin:0 0 16px;">{mensaje}</p>
+
+        <!-- Seguimiento -->
+        <p style="margin:0 0 16px; font-size:13px;">{pasos_html}</p>
+
+        <!-- Recuadro del folio -->
+        <div style="background-color:#f4f4f4; border:1px dashed {DORADO}; border-radius:6px; padding:12px 14px; margin:0 0 16px;">
+          {categoria_html}
+          <p style="margin:0; font-family:'Courier New', monospace; font-size:16px;">
+            Folio de seguimiento: <strong style="letter-spacing:1px;">{folio}</strong>
+          </p>
+        </div>
+
+        <p style="margin:0 0 20px;">Gracias por ayudar a construir una mejor ciudad.</p>
+
+        <!-- Firma -->
+        <p style="margin:0; font-size:12px; color:#777777;">
+          Atentamente,<br>
+          Ayuntamiento Municipal - Plataforma Hackatec
+        </p>
+      </div>
+    </div>
+  </body>
+</html>"""
+
+    mensaje_texto = mensaje.replace("<strong>", "").replace("</strong>", "")
+    texto = (
+        f"{saludo.replace(html.escape(nombre or ''), nombre or '')}\n\n{mensaje_texto}\n\n"
+        + (f"Tipo de problema: {categoria}\n" if categoria else "")
+        + f"Folio de seguimiento: {folio}\n\n"
+        "Gracias por ayudar a construir una mejor ciudad.\n\n"
+        "Atentamente,\nAyuntamiento Municipal - Plataforma Hackatec\n"
+    )
+    return asunto, cuerpo, texto
+
+
+def enviar_correos(etapa: str, incidencia_id: str, destinatarios: list, categoria: Optional[str]) -> dict:
+    """Envía el correo de la etapa a [(email, nombre), ...] en UNA sola sesión SMTP.
+    Nunca lanza: un fallo de correo no debe romper el reporte ni el cambio de estado."""
+    resultado = {"enviados": [], "fallidos": 0, "configurado": bool(SMTP_USER and SMTP_PASSWORD)}
+    destinatarios = destinatarios[:MAX_DESTINATARIOS]
+    if not destinatarios:
+        return resultado
+    if not resultado["configurado"]:
+        print(f"[CORREO OMITIDO] SMTP_USER/SMTP_PASSWORD no configurados ({etapa}, {len(destinatarios)} destinatario(s))")
+        resultado["fallidos"] = len(destinatarios)
+        return resultado
+
+    try:
+        with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=10, context=ssl.create_default_context()) as smtp:
+            smtp.login(SMTP_USER, SMTP_PASSWORD)
+            for email, nombre in destinatarios:
+                try:
+                    asunto, cuerpo, texto = construir_correo(etapa, nombre, incidencia_id, categoria)
+                    msg = EmailMessage()
+                    msg["Subject"] = asunto
+                    msg["From"] = formataddr((MAIL_FROM_NAME, SMTP_USER))
+                    msg["To"] = email
+                    msg.set_content(texto)
+                    msg.add_alternative(cuerpo, subtype="html")
+                    smtp.send_message(msg)
+                    resultado["enviados"].append(email)
+                except Exception as e:  # un destinatario inválido no frena a los demás
+                    resultado["fallidos"] += 1
+                    print(f"ERROR correo ({etapa}) a {enmascarar_correo(email)}: {type(e).__name__}")
+    except Exception as e:
+        # conexión/login: solo el tipo de error, para no filtrar datos de la cuenta
+        resultado["fallidos"] = len(destinatarios) - len(resultado["enviados"])
+        print(f"ERROR SMTP ({etapa}): {type(e).__name__}")
+    return resultado
+
+
+def destinatarios_de(incidencia_id: str) -> list:
+    """Correos únicos (con el nombre del primer reporte que los usó) de una incidencia."""
+    filas = (
+        supabase.table("reportes")
+        .select("nombre_ciudadano, email_ciudadano")
+        .eq("incidencia_id", str(incidencia_id))
+        .order("created_at", desc=False)
+        .execute()
+        .data
+    )
+    vistos, lista = set(), []
+    for f in filas:
+        email = f.get("email_ciudadano")
+        if email and email.lower() not in vistos:
+            vistos.add(email.lower())
+            lista.append((email, f.get("nombre_ciudadano")))
+    return lista
+
+
+def nombre_categoria_de(incidencia_id: str) -> Optional[str]:
+    try:
+        r = supabase.table("v_incidencias_admin").select("categoria_nombre").eq("id", str(incidencia_id)).execute().data
+        return r[0]["categoria_nombre"] if r else None
+    except Exception:
+        return None
 
 
 def enmascarar_correo(email: Optional[str]) -> Optional[str]:
@@ -233,13 +397,24 @@ def registrar_reporte(reporte: ReporteNuevo, request: Request):
 
     try:
         response = supabase.rpc("registrar_incidencia", payload).execute()
-        return response.data
+        datos = response.data
     except Exception as e:
         error_msg = str(e)
         print(f"ERROR POST /api/reportes: {error_msg}")
         if "22023" in error_msg or "inválida" in error_msg.lower() or "inactiva" in error_msg.lower():
             raise HTTPException(status_code=422, detail=f"Datos inválidos: {error_msg}")
         raise HTTPException(status_code=500, detail="Error interno del servidor.")
+
+    # Etapa 1: confirmación al ciudadano que reporta (si dejó correo). Un fallo de correo no afecta al reporte.
+    if reporte.email_ciudadano and isinstance(datos, dict) and datos.get("incidencia_id"):
+        envio = enviar_correos(
+            "recibido",
+            datos["incidencia_id"],
+            [(str(reporte.email_ciudadano), reporte.nombre_ciudadano)],
+            nombre_categoria_de(datos["incidencia_id"]),
+        )
+        datos = {**datos, "correo": "enviado" if envio["enviados"] else "no_enviado"}
+    return datos
 
 
 @app.get("/api/admin/incidencias", tags=["Admin"])
@@ -326,7 +501,17 @@ def _cambiar_estado(incidencia_id: UUID, desde: str, hacia: str, mensaje: str):
 @app.patch("/api/admin/en-proceso", tags=["Admin"])
 def marcar_en_proceso(payload: CambioEstado):
     """pendiente → en_proceso (una cuadrilla ya la atiende)."""
-    return _cambiar_estado(payload.incidencia_id, "pendiente", "en_proceso", "Incidencia marcada en proceso.")
+    respuesta = _cambiar_estado(payload.incidencia_id, "pendiente", "en_proceso", "Incidencia marcada en proceso.")
+    # Etapa 2: aviso a los ciudadanos vinculados (un fallo de correo no revierte el cambio de estado)
+    try:
+        envio = enviar_correos(
+            "en_proceso", str(payload.incidencia_id), destinatarios_de(payload.incidencia_id),
+            nombre_categoria_de(payload.incidencia_id),
+        )
+    except Exception as e:
+        print(f"ERROR avisos en proceso: {type(e).__name__}")
+        envio = {"enviados": [], "fallidos": 0}
+    return {**respuesta, "correos_notificados": envio["enviados"], "correos_fallidos": envio["fallidos"]}
 
 
 @app.patch("/api/admin/restaurar", tags=["Admin"])
@@ -344,14 +529,29 @@ def resolver_incidencia_endpoint(payload: ResolverIncidencia):
             "p_funcionario":   payload.funcionario_id,
         }).execute()
         correos = res.data or []
-        enviar_correos_resolucion(payload.incidencia_id, correos)
-        return {"mensaje": "Incidencia marcada como atendida.", "correos_notificados": correos}
     except Exception as e:
         error_msg = str(e)
         print(f"ERROR PATCH /resolver: {error_msg}")
         if "P0002" in error_msg or "cerrada" in error_msg.lower():
             raise HTTPException(status_code=409, detail="Incidencia no encontrada o ya cerrada.")
         raise HTTPException(status_code=500, detail="Error interno al resolver la incidencia.")
+
+    # Etapa 3: aviso de atendido. La incidencia ya quedó cerrada, así que un fallo de correo no es un error de la operación.
+    try:
+        nombres = {email.lower(): nombre for email, nombre in destinatarios_de(payload.incidencia_id)}
+        envio = enviar_correos(
+            "atendida", payload.incidencia_id,
+            [(c, nombres.get(c.lower())) for c in correos],
+            nombre_categoria_de(payload.incidencia_id),
+        )
+    except Exception as e:
+        print(f"ERROR avisos atendida: {type(e).__name__}")
+        envio = {"enviados": [], "fallidos": len(correos)}
+    return {
+        "mensaje": "Incidencia marcada como atendida.",
+        "correos_notificados": envio["enviados"],
+        "correos_fallidos": envio["fallidos"],
+    }
 
 
 @app.patch("/api/admin/rechazar", tags=["Admin"])

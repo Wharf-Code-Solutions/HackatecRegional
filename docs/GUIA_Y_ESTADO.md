@@ -84,6 +84,19 @@ El formulario envía `nombre_ciudadano` (obligatorio en la interfaz, opcional en
 - Aviso de éxito con folio corto de 8 caracteres y botón "Copiar".
 - Pines públicos: `GET /api/incidencias` devuelve solo activas (pendiente, en proceso) con `categoria, categoria_nombre, estado, prioridad, reportes_count, lat, lon`. **Nunca** id, foto, dirección, nombre, correo ni descripción. La ficha del pin muestra solo esos datos.
 
+## Correos por etapa
+- Se envían por SMTP (Gmail) desde el backend en 3 momentos: **Recibido** (al crear el reporte, solo a quien reporta), **En proceso** (al marcarla en el panel, a todos los ciudadanos vinculados) y **Atendido** (al resolverla). Rechazar **no** envía correo.
+- Plantilla HTML con colores del kit gob.mx (banner guinda/verde, borde dorado, recuadro del folio de 8 caracteres) y versión en texto plano. Solo incluye nombre, tipo de problema y folio.
+- Un fallo de correo **nunca** rompe el reporte ni el cambio de estado; el panel informa cuántos correos salieron.
+- Variables de entorno en Vercel (Production y Preview, **solo backend, sin `VITE_`**): `SMTP_USER` (cuenta de Gmail) y `SMTP_PASSWORD` (contraseña de aplicación de 16 caracteres, márcala como Secret). Opcionales: `SMTP_HOST` (smtp.gmail.com), `SMTP_PORT` (465), `MAIL_FROM_NAME`. Sin ellas los correos se omiten y todo lo demás funciona.
+- **Nunca** guardes la contraseña en el repositorio, en el chat ni en `.env` versionado.
+- Límites: Gmail permite unos 500 correos al día por cuenta. El endpoint de reportes tiene límite de 5 por minuto por IP, pero alguien podría escribir un correo ajeno; para producción real conviene confirmar el correo o usar un servicio transaccional.
+
+## Rendimiento de carga
+- `index.html` trae un **shell prerenderizado** (barra superior + indicador) con CSS crítico en línea, así que algo se ve al instante. Las fuentes y el kit gob.mx cargan sin bloquear el primer pintado.
+- Las rutas (`/` y `/admin`), el formulario y la compresión de fotos se cargan bajo demanda; el JS inicial pasó de ~575 KB a ~261 KB (173 → 83 KB comprimido). `mapbox-gl` (~517 KB comprimido) se descarga justo después del primer pintado.
+- `vercel.json` marca `/assets/*` como inmutables (caché de un año; los nombres llevan hash).
+
 ## 6. Flujo de ramas
 - `main` = producción (Vercel). Solo entra código por PR.
 - `feat/*` = una rama por módulo, creada desde `main` actualizado. Cada push genera un preview en Vercel.

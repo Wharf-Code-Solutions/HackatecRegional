@@ -44,3 +44,7 @@ body {
 .btn-gob:hover {
   background-color: #7a1a32;
 }
+/* Indicador de carga de rutas (mismo aspecto que el shell prerenderizado de index.html) */
+.cargando-ruta { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; font-size: 14px; background: #ebe7e4; }
+.cargando-ruta__giro { width: 36px; height: 36px; border: 4px solid #d9cdb8; border-top-color: var(--gob-guinda); border-radius: 50%; animation: cargando-giro 0.8s linear infinite; }
+@keyframes cargando-giro { to { transform: rotate(360deg); } }
