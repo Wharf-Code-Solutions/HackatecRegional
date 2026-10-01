@@ -85,3 +85,5 @@
 .desglose li { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed #eee; font-size: 13px; }
 .desglose li:last-child { border-bottom: none; }
 .desglose strong { color: var(--gob-guinda); }
+
+.footer-nota { margin: 0; font-size: 12px; color: #777; text-align: center; }

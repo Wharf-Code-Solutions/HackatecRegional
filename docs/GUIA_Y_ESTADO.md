@@ -119,6 +119,14 @@ El formulario envía `nombre_ciudadano` (obligatorio en la interfaz, opcional en
 - El panel muestra el desglose (tipo + reportes + entorno) y los lugares cercanos, y la dirección en cada tarjeta.
 - Los pesos están en `LUGARES_SENSIBLES` de `api/index.py` y son ajustables. Límite conocido: Mapbox etiqueta como "Clínica" también a laboratorios y consultorios.
 
+## Panel del funcionario: mapa de calor, colonias y reglas
+- **Mapa de calor** (`/admin`): la intensidad de una zona crece con el número de reportes (`reportes_count`) de las incidencias de la pestaña actual; se desvanece al acercarse para ver los pines. Botón "Mapa de calor" para activarlo o apagarlo y leyenda de intensidad. Ya no hay barras de porcentaje (el análisis irá al dashboard adicional).
+- **Colonias:** el backend las obtiene con la misma llamada de geocodificación inversa que la dirección (`neighborhood` = colonia, `locality`/`place` = municipio) y las guarda en `incidencias.colonia` y `incidencias.municipio` (**requiere `db/005_colonia.sql`**). En zonas rurales Mapbox no trae colonia y la tarjeta muestra el municipio o "Sin colonia identificada". Para completar las incidencias anteriores: `python scripts/backfill_contexto.py` (opción `--solo-ver` para revisar antes).
+- **Resolver solo en el último paso:** una incidencia pendiente solo ofrece "Marcar en proceso" y "Rechazar"; "Resolver" aparece cuando está en proceso. El backend lo exige (409 si se intenta resolver una incidencia que no está en proceso).
+- **Avisos:** las notificaciones de acciones aparecen centradas arriba y se cierran solas a los 5 s.
+- **Tarjetas** de altura fija (132 px): título y ubicación se recortan con elipsis para que la lista se vea uniforme.
+- **Header por módulo:** `/` solo "Rastreo de Reportes"; `/rastreo` "Reportar un problema"; `/admin` "Dashboard"; `/admin/dashboard` "Incidencias". El dashboard de información es por ahora una página base.
+
 ## 6. Flujo de ramas
 - `main` = producción (Vercel). Solo entra código por PR.
 - `feat/*` = una rama por módulo, creada desde `main` actualizado. Cada push genera un preview en Vercel.

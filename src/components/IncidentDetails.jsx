@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import './IncidentDetails.css';
 import {
   getDetalle, marcarEnProceso, resolver, rechazar, restaurar,
-  fechaHora, hora, folio, nivelPrioridad, coordenadas,
+  fechaHora, hora, folio, nivelPrioridad, coordenadas, textoColonia,
 } from '../lib/api';
 
 const ETIQUETA_PRIORIDAD = { alta: 'Prioridad alta', media: 'Prioridad media', baja: 'Prioridad baja' };
@@ -36,7 +36,6 @@ export default function IncidentDetails({ id, resumen, onClose, onCambio }) {
   const [accion, setAccion] = useState(null); // 'proceso' | 'resolver' | 'rechazar' | 'restaurar' mientras se ejecuta
   const [confirmando, setConfirmando] = useState(null); // 'resolver' | 'rechazar'
   const [motivo, setMotivo] = useState('');
-  const [errorAccion, setErrorAccion] = useState(null);
 
   useEffect(() => {
     let vigente = true;
@@ -51,7 +50,6 @@ export default function IncidentDetails({ id, resumen, onClose, onCambio }) {
 
   async function ejecutar(nombre, fn, mensaje) {
     setAccion(nombre);
-    setErrorAccion(null);
     try {
       const res = await fn();
       setConfirmando(null);
@@ -63,7 +61,7 @@ export default function IncidentDetails({ id, resumen, onClose, onCambio }) {
       onCambio(`${mensaje}${extra}`);
       setVersion((v) => v + 1);
     } catch (e) {
-      setErrorAccion(e.message);
+      onCambio(e.message, 'danger'); // el aviso aparece centrado arriba, como el resto de notificaciones
     } finally {
       setAccion(null);
     }
@@ -108,6 +106,7 @@ export default function IncidentDetails({ id, resumen, onClose, onCambio }) {
                   <div className="info-value">{fechaHora(d.created_at)}</div>
                 </div>
               </div>
+              <div className="info-direccion"><strong>{textoColonia(d)}</strong></div>
               {d.direccion && <div className="info-direccion">{d.direccion}</div>}
             </div>
 
@@ -188,8 +187,6 @@ export default function IncidentDetails({ id, resumen, onClose, onCambio }) {
 
       {d && (
         <div className="panel-footer">
-          {errorAccion && <div className="alert alert-danger mb-0" role="alert">{errorAccion}</div>}
-
           {confirmando === 'resolver' && (
             <div className="alert alert-warning mb-0" role="alert">
               ¿Marcar como atendida? Se avisará por correo a {correos} ciudadano(s).
@@ -218,23 +215,31 @@ export default function IncidentDetails({ id, resumen, onClose, onCambio }) {
             </div>
           )}
 
-          {!confirmando && (d.estado === 'pendiente' || d.estado === 'en_proceso') && (
+          {!confirmando && d.estado === 'pendiente' && (
             <>
-              {d.estado === 'pendiente' && (
-                <button type="button" className="btn btn-outline-secondary" disabled={ocupado}
+              <div className="footer-botones">
+                <button type="button" className="btn btn-primary" disabled={ocupado}
                   onClick={() => ejecutar('proceso', () => marcarEnProceso(id), 'Reporte marcado en proceso.')}>
                   {accion === 'proceso' ? 'Guardando…' : 'Marcar en proceso'}
-                </button>
-              )}
-              <div className="footer-botones">
-                <button type="button" className="btn btn-primary" disabled={ocupado} onClick={() => setConfirmando('resolver')}>
-                  Resolver
                 </button>
                 <button type="button" className="btn btn-outline-danger" disabled={ocupado} onClick={() => setConfirmando('rechazar')}>
                   Rechazar
                 </button>
               </div>
+              <p className="footer-nota">Para resolverla, primero márcala en proceso.</p>
             </>
+          )}
+
+          {/* "Resolver" solo aparece en el último paso: cuando la incidencia ya está en proceso */}
+          {!confirmando && d.estado === 'en_proceso' && (
+            <div className="footer-botones">
+              <button type="button" className="btn btn-primary" disabled={ocupado} onClick={() => setConfirmando('resolver')}>
+                Resolver
+              </button>
+              <button type="button" className="btn btn-outline-danger" disabled={ocupado} onClick={() => setConfirmando('rechazar')}>
+                Rechazar
+              </button>
+            </div>
           )}
 
           {!confirmando && d.estado === 'rechazada' && (

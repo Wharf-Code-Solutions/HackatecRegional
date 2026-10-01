@@ -72,3 +72,11 @@ export function nivelPrioridad(p) {
 }
 
 export const coordenadas = (i) => `${i.lat.toFixed(5)}, ${i.lon.toFixed(5)}`
+
+// "Col. Moderno, Veracruz" | "Veracruz" | "Sin colonia identificada" (en zonas rurales Mapbox no trae colonia)
+export function textoColonia(i) {
+  if (i.colonia && i.municipio) return `Col. ${i.colonia}, ${i.municipio}`
+  if (i.colonia) return `Col. ${i.colonia}`
+  if (i.municipio) return i.municipio
+  return 'Sin colonia identificada'
+}

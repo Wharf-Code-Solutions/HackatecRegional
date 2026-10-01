@@ -1,13 +1,31 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import Map, { Marker } from 'react-map-gl/mapbox';
+import Map, { Layer, Marker, Source } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import './Dashboard.css';
 import { LIMITES_MEXICO, ZOOM_MINIMO } from '../lib/mexico';
 import IncidentDetails from './IncidentDetails';
-import { getIncidencias, hace, folio, nivelPrioridad, coordenadas } from '../lib/api';
+import Toast from './Toast';
+import { getIncidencias, hace, folio, nivelPrioridad, coordenadas, textoColonia } from '../lib/api';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const REFRESCO_MS = 30000;
+
+// Mapa de calor: la intensidad de una zona crece con el número de reportes de sus incidencias
+const CAPA_CALOR = {
+  id: 'calor',
+  type: 'heatmap',
+  paint: {
+    'heatmap-weight': ['interpolate', ['linear'], ['get', 'peso'], 1, 0.35, 5, 0.8, 10, 1],
+    'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 9, 0.8, 15, 2],
+    'heatmap-color': [
+      'interpolate', ['linear'], ['heatmap-density'],
+      0, 'rgba(188,149,92,0)', 0.2, 'rgba(221,201,163,0.55)', 0.5, 'rgba(188,149,92,0.8)',
+      0.8, 'rgba(157,36,73,0.85)', 1, 'rgba(97,18,50,0.95)',
+    ],
+    'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 9, 18, 13, 38, 16, 70],
+    'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 14, 0.9, 17, 0.3], // se desvanece al acercarse para ver los pines
+  },
+};
 
 const PESTANAS = [
   { id: 'activas', etiqueta: 'Activas', estado: undefined },
@@ -23,6 +41,7 @@ export default function Dashboard() {
   const [seleccionId, setSeleccionId] = useState(null);
   const [tick, setTick] = useState(0);
   const [aviso, setAviso] = useState(null); // { tipo, texto }
+  const [calor, setCalor] = useState(true);
 
   // Resultado asociado a la pestaña que lo pidió: "cargando" = aún no llega el de la pestaña actual
   const [datos, setDatos] = useState({ pestana: null, items: [], error: null });
@@ -83,6 +102,16 @@ export default function Dashboard() {
     setTick((n) => n + 1);
   }
 
+  // Cada incidencia pesa por su número de reportes
+  const geojsonCalor = useMemo(() => ({
+    type: 'FeatureCollection',
+    features: visibles.map((i) => ({
+      type: 'Feature',
+      properties: { peso: i.reportes_count },
+      geometry: { type: 'Point', coordinates: [i.lon, i.lat] },
+    })),
+  }), [visibles]);
+
   const seleccionado = items.find((i) => i.id === seleccionId) ?? null;
 
   return (
@@ -114,20 +143,6 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {categorias.slice(0, 5).map((c) => {
-            const porcentaje = Math.round((c.cantidad / items.length) * 100);
-            return (
-              <div key={c.slug} className="sector-progress">
-                <div className="sector-info">
-                  <span>{c.nombre}</span>
-                  <span>{c.cantidad} ({porcentaje}%)</span>
-                </div>
-                <div className="progress-bar-bg">
-                  <div className="progress-bar-fill" style={{ width: `${porcentaje}%` }}></div>
-                </div>
-              </div>
-            );
-          })}
         </div>
 
         <div className="sidebar-filters">
@@ -143,13 +158,6 @@ export default function Dashboard() {
             Actualizar
           </button>
         </div>
-
-        {aviso && (
-          <div className={`alert alert-${aviso.tipo} alerta-panel`} role="status">
-            {aviso.texto}
-            <button type="button" className="alerta-cerrar" onClick={() => setAviso(null)} aria-label="Cerrar aviso">×</button>
-          </div>
-        )}
 
         <div className="sidebar-list">
           {cargando ? (
@@ -179,7 +187,10 @@ export default function Dashboard() {
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                       <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle>
                     </svg>
-                    {r.direccion || coordenadas(r)}
+                    <div className="card-location__texto">
+                      <span className="card-colonia" title={textoColonia(r)}>{textoColonia(r)}</span>
+                      <span className="card-direccion" title={r.direccion || coordenadas(r)}>{r.direccion || coordenadas(r)}</span>
+                    </div>
                   </div>
                   <div className="card-footer">
                     <span className={r.reportes_count > 1 ? 'tag-agrupado' : 'tag-normal'}>
@@ -209,6 +220,11 @@ export default function Dashboard() {
           minZoom={ZOOM_MINIMO}
           style={{ width: '100%', height: '100%' }}
         >
+          {calor && (
+            <Source id="reportes-calor" type="geojson" data={geojsonCalor}>
+              <Layer {...CAPA_CALOR} />
+            </Source>
+          )}
           {visibles.map((r) => (
             <Marker key={r.id} longitude={r.lon} latitude={r.lat} anchor="bottom">
               <button type="button" aria-label={`${r.categoria_nombre}, prioridad ${r.prioridad}`}
@@ -217,7 +233,23 @@ export default function Dashboard() {
             </Marker>
           ))}
         </Map>
+
+        <div className="mapa-controles">
+          <button type="button" className={`btn-calor${calor ? ' activo' : ''}`} aria-pressed={calor}
+            onClick={() => setCalor((v) => !v)}>
+            Mapa de calor
+          </button>
+        </div>
+        {calor && (
+          <div className="leyenda-calor" aria-label="Leyenda del mapa de calor">
+            <span>Menos reportes</span>
+            <i className="leyenda-calor__barra" />
+            <span>Más reportes</span>
+          </div>
+        )}
       </section>
+
+      <Toast aviso={aviso} onClose={() => setAviso(null)} />
 
       {seleccionId && (
         <IncidentDetails

@@ -356,10 +356,26 @@ def calcular_entorno(lat: float, lon: float) -> tuple:
         return 0, None
 
 
-def obtener_direccion(lat: float, lon: float) -> Optional[str]:
-    """Geocodificación inversa (Mapbox Geocoding v6) -> 'Calle y número, C.P. Ciudad, Estado, México'."""
+def interpretar_geocodificacion(feature: dict) -> dict:
+    """Resultado de Mapbox Geocoding v6 -> {direccion, colonia, municipio}. Función pura, testeable.
+    La colonia viene en context.neighborhood (o es el propio resultado si es de tipo neighborhood);
+    el municipio en context.locality (alcaldías de CDMX) o context.place."""
+    props = feature.get("properties", {})
+    ctx = props.get("context", {}) or {}
+    texto = props.get("full_address") or props.get("place_formatted") or props.get("name")
+    colonia = (ctx.get("neighborhood") or {}).get("name")
+    if not colonia and props.get("feature_type") == "neighborhood":
+        colonia = props.get("name")
+    municipio = (ctx.get("locality") or {}).get("name") or (ctx.get("place") or {}).get("name")
+    recortar = lambda v, n: v[:n] if v else None
+    return {"direccion": recortar(texto, 200), "colonia": recortar(colonia, 120), "municipio": recortar(municipio, 120)}
+
+
+def obtener_direccion(lat: float, lon: float) -> dict:
+    """Geocodificación inversa (Mapbox Geocoding v6): UNA llamada -> dirección, colonia y municipio."""
+    vacio = {"direccion": None, "colonia": None, "municipio": None}
     if not MAPBOX_TOKEN:
-        return None
+        return vacio
     try:
         r = httpx.get(
             "https://api.mapbox.com/search/geocode/v6/reverse",
@@ -371,23 +387,48 @@ def obtener_direccion(lat: float, lon: float) -> Optional[str]:
         )
         r.raise_for_status()
         features = r.json().get("features") or []
-        if not features:
-            return None
-        props = features[0].get("properties", {})
-        texto = props.get("full_address") or props.get("place_formatted") or props.get("name")
-        return texto[:200] if texto else None
+        return interpretar_geocodificacion(features[0]) if features else vacio
     except Exception as e:
         print(f"ERROR dirección (Mapbox): {type(e).__name__}")
-        return None
+        return vacio
 
 
 def calcular_contexto(lat: float, lon: float) -> dict:
-    """Dirección y entorno en paralelo (cada uno tolera sus propios fallos)."""
+    """Dirección/colonia y entorno en paralelo (cada uno tolera sus propios fallos)."""
     with ThreadPoolExecutor(max_workers=2) as pool:
         f_dir = pool.submit(obtener_direccion, lat, lon)
         f_ent = pool.submit(calcular_entorno, lat, lon)
         bonus, detalle = f_ent.result()
-        return {"direccion": f_dir.result(), "bonus": bonus, "detalle": detalle}
+        return {**f_dir.result(), "bonus": bonus, "detalle": detalle}
+
+
+def aplicar_contexto(incidencia_id: str, ctx: dict) -> Optional[int]:
+    """Guarda dirección, colonia/municipio y bonus de entorno de una incidencia. Cada paso es independiente y
+    tolerante: `direccion` ya existía; colonia/municipio requieren db/005 y el bonus db/004. Devuelve la nueva
+    prioridad si se aplicó el bonus."""
+    if ctx.get("direccion"):
+        try:
+            supabase.table("incidencias").update({"direccion": ctx["direccion"]}).eq("id", str(incidencia_id)).execute()
+        except Exception as e:
+            print(f"ERROR guardar dirección: {type(e).__name__}")
+    if ctx.get("colonia") or ctx.get("municipio"):
+        try:
+            supabase.table("incidencias").update(
+                {"colonia": ctx.get("colonia"), "municipio": ctx.get("municipio")}
+            ).eq("id", str(incidencia_id)).execute()
+        except Exception as e:
+            print(f"ERROR guardar colonia (¿falta db/005?): {type(e).__name__}")
+    if ctx.get("bonus", 0) > 0:
+        try:
+            aplicado = supabase.rpc("aplicar_entorno", {
+                "p_incidencia_id": str(incidencia_id),
+                "p_bonus": ctx["bonus"],
+                "p_detalle": ctx.get("detalle"),
+            }).execute()
+            return aplicado.data
+        except Exception as e:
+            print(f"ERROR aplicar_entorno (¿falta db/004?): {type(e).__name__}")
+    return None
 
 
 def enmascarar_correo(email: Optional[str]) -> Optional[str]:
@@ -568,25 +609,12 @@ def registrar_reporte(reporte: ReporteNuevo, request: Request):
         raise HTTPException(status_code=500, detail="Error interno del servidor.")
 
     # Contexto del reporte: solo para incidencias NUEVAS (las agrupadas están a <= 10 m de una ya evaluada).
-    # Todo es best-effort: si falla Mapbox o aún no se ejecutó db/004, el reporte queda con lo que ya tiene.
+    # Todo es best-effort: si falla Mapbox o aún no se ejecutaron db/004 o db/005, el reporte queda con lo que ya tiene.
     if isinstance(datos, dict) and datos.get("incidencia_id") and not datos.get("agrupado"):
         ctx = calcular_contexto(reporte.lat, reporte.lon)
-        if ctx["direccion"]:
-            try:
-                supabase.table("incidencias").update({"direccion": ctx["direccion"]}).eq("id", datos["incidencia_id"]).execute()
-            except Exception as e:
-                print(f"ERROR guardar dirección: {type(e).__name__}")
-        if ctx["bonus"] > 0:
-            try:
-                aplicado = supabase.rpc("aplicar_entorno", {
-                    "p_incidencia_id": datos["incidencia_id"],
-                    "p_bonus": ctx["bonus"],
-                    "p_detalle": ctx["detalle"],
-                }).execute()
-                if aplicado.data is not None:
-                    datos = {**datos, "prioridad": aplicado.data, "entorno_bonus": ctx["bonus"]}
-            except Exception as e:
-                print(f"ERROR aplicar_entorno: {type(e).__name__}")
+        nueva_prioridad = aplicar_contexto(datos["incidencia_id"], ctx)
+        if nueva_prioridad is not None:
+            datos = {**datos, "prioridad": nueva_prioridad, "entorno_bonus": ctx["bonus"]}
 
     # Etapa 1: confirmación al ciudadano que reporta (si dejó correo). Un fallo de correo no afecta al reporte.
     if reporte.email_ciudadano and isinstance(datos, dict) and datos.get("incidencia_id"):
@@ -705,7 +733,20 @@ def restaurar_incidencia(payload: CambioEstado):
 
 @app.patch("/api/admin/resolver", tags=["Admin"])
 def resolver_incidencia_endpoint(payload: ResolverIncidencia):
-    """Marca como atendida y notifica por correo a los ciudadanos (simulado)."""
+    """Marca como atendida y notifica por correo. Solo se puede resolver una incidencia que ya está en proceso."""
+    try:
+        UUID(payload.incidencia_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Identificador de incidencia inválido.")
+    try:
+        actual = supabase.table("incidencias").select("estado").eq("id", payload.incidencia_id).execute().data
+    except Exception as e:
+        print(f"ERROR PATCH /resolver (estado): {type(e).__name__}")
+        raise HTTPException(status_code=500, detail="Error interno al resolver la incidencia.")
+    if not actual:
+        raise HTTPException(status_code=404, detail="Incidencia no encontrada.")
+    if actual[0]["estado"] != "en_proceso":
+        raise HTTPException(status_code=409, detail="Primero marca la incidencia en proceso; solo entonces se puede resolver.")
     try:
         res = supabase.rpc("resolver_incidencia", {
             "p_incidencia_id": payload.incidencia_id,
