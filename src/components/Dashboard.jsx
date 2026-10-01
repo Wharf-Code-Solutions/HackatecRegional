@@ -16,14 +16,17 @@ const CAPA_CALOR = {
   type: 'heatmap',
   paint: {
     'heatmap-weight': ['interpolate', ['linear'], ['get', 'peso'], 1, 0.35, 5, 0.8, 10, 1],
-    'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 9, 0.8, 15, 2],
+    // Al alejar: más intensidad y radio chico => manchas más nítidas y saturadas; al acercar vuelve a suavizarse
+    'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 4, 2.6, 9, 1.8, 13, 1, 15, 2],
+    // Bandas de densidad bien marcadas (paleta gob.mx) para que se note el patrón de difuminado
     'heatmap-color': [
       'interpolate', ['linear'], ['heatmap-density'],
-      0, 'rgba(188,149,92,0)', 0.2, 'rgba(221,201,163,0.55)', 0.5, 'rgba(188,149,92,0.8)',
-      0.8, 'rgba(157,36,73,0.85)', 1, 'rgba(97,18,50,0.95)',
+      0, 'rgba(188,149,92,0)', 0.08, 'rgba(226,196,130,0.7)', 0.25, 'rgba(201,153,63,0.9)',
+      0.4, 'rgba(214,106,60,0.93)', 0.55, 'rgba(196,52,62,0.95)', 0.7, 'rgba(157,36,73,0.97)',
+      0.85, 'rgba(120,22,58,1)', 1, 'rgba(70,10,36,1)',
     ],
-    'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 9, 18, 13, 38, 16, 70],
-    'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 14, 0.9, 17, 0.3], // se desvanece al acercarse para ver los pines
+    'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 4, 5, 9, 10, 11, 16, 13, 32, 16, 70],
+    'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 14, 0.95, 17, 0.3], // se desvanece al acercarse para ver los pines
   },
 };
 

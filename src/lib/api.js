@@ -28,6 +28,12 @@ const patch = (ruta, cuerpo) =>
 export const getIncidencias = (estado) =>
   request(estado ? `/api/admin/incidencias?estado=${estado}` : '/api/admin/incidencias')
 
+// Agregados del dashboard: params opcionales { desde, hasta, municipio, categoria }
+export const getEstadisticas = (params = {}) => {
+  const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v)).toString()
+  return request(`/api/admin/estadisticas${qs ? `?${qs}` : ''}`)
+}
+
 // Pines del mapa ciudadano: endpoint público, solo activas y sin datos personales
 export const getIncidenciasPublicas = () => request('/api/incidencias')
 

@@ -707,6 +707,95 @@ def obtener_incidencias(estado: Optional[str] = None):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/admin/estadisticas", tags=["Admin"])
+def obtener_estadisticas(
+    desde: Optional[str] = None,
+    hasta: Optional[str] = None,
+    municipio: Optional[str] = None,
+    categoria: Optional[str] = None,
+):
+    """Agregados para el dashboard del funcionario, calculados desde v_incidencias_admin."""
+    from datetime import datetime
+
+    def _fecha(valor: Optional[str]) -> Optional[datetime]:
+        if not valor:
+            return None
+        try:
+            return datetime.fromisoformat(valor.replace("Z", "+00:00"))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Fecha inválida (usa formato ISO 8601)")
+
+    f_desde, f_hasta = _fecha(desde), _fecha(hasta)
+
+    try:
+        filas, inicio = [], 0
+        while True:  # Supabase limita cada respuesta (1000 filas): se pagina
+            q = supabase.table("v_incidencias_admin").select("*")
+            if desde:
+                q = q.gte("created_at", desde)
+            if hasta:
+                q = q.lte("created_at", hasta)
+            if categoria:
+                q = q.eq("categoria", categoria)
+            lote = q.order("created_at").range(inicio, inicio + 999).execute().data or []
+            filas.extend(lote)
+            if len(lote) < 1000:
+                break
+            inicio += 1000
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    # La lista de municipios se arma antes de filtrar por municipio, para poder cambiar de selección
+    municipios = sorted({f["municipio"] for f in filas if f.get("municipio")})
+    if municipio:
+        filas = [f for f in filas if f.get("municipio") == municipio]
+
+    estados = {"pendiente": 0, "en_proceso": 0, "atendida": 0, "rechazada": 0}
+    por_cat: dict = {}
+    por_col: dict = {}
+    segundos, urgentes = [], 0
+
+    for f in filas:
+        est = f["estado"]
+        estados[est] = estados.get(est, 0) + 1
+        activa = est in ("pendiente", "en_proceso")
+        if activa and (f.get("prioridad") or 0) >= 7:
+            urgentes += 1
+        if est == "atendida" and f.get("atendida_at"):
+            dt = datetime.fromisoformat(f["atendida_at"].replace("Z", "+00:00")) - datetime.fromisoformat(
+                f["created_at"].replace("Z", "+00:00")
+            )
+            segundos.append(max(0, dt.total_seconds()))
+
+        c = por_cat.setdefault(
+            f["categoria"], {"slug": f["categoria"], "nombre": f["categoria_nombre"], "total": 0, "activas": 0, "atendidas": 0}
+        )
+        c["total"] += 1
+        c["activas"] += 1 if activa else 0
+        c["atendidas"] += 1 if est == "atendida" else 0
+
+        clave = (f.get("colonia") or "Sin colonia", f.get("municipio") or "")
+        col = por_col.setdefault(clave, {"colonia": clave[0], "municipio": clave[1], "total": 0, "activas": 0})
+        col["total"] += 1
+        col["activas"] += 1 if activa else 0
+
+    total = len(filas)
+    resueltas = estados["atendida"]
+    return {
+        "kpis": {
+            "total": total,
+            **estados,
+            "urgentes": urgentes,
+            "reportes_totales": sum(f.get("reportes_count") or 0 for f in filas),
+            "porcentaje_resolucion": round(100 * resueltas / total, 1) if total else 0,
+            "tiempo_promedio_horas": round(sum(segundos) / len(segundos) / 3600, 1) if segundos else None,
+        },
+        "por_categoria": sorted(por_cat.values(), key=lambda x: -x["total"]),
+        "por_colonia": sorted(por_col.values(), key=lambda x: -x["total"])[:10],
+        "municipios": municipios,
+    }
+
+
 @app.get("/api/admin/incidencias/{incidencia_id}", tags=["Admin"])
 def obtener_detalle_incidencia(incidencia_id: UUID):
     """Detalle de una incidencia: fila de la vista + reportes individuales (correo enmascarado)."""

@@ -175,4 +175,4 @@
 .btn-calor { min-height: 40px; padding: 8px 16px; border: 1px solid var(--gob-guinda); border-radius: 20px; background: #fff; color: var(--gob-guinda); font-family: var(--font-gob); font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2); }
 .btn-calor.activo { background: var(--gob-guinda); color: #fff; }
 .leyenda-calor { position: absolute; left: 12px; bottom: 28px; z-index: 5; display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 8px; background: rgba(255, 255, 255, 0.92); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2); font-size: 11px; font-weight: 600; color: var(--gob-gris-oscuro); }
-.leyenda-calor__barra { display: block; width: 90px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, rgba(221, 201, 163, 0.6), #bc955c, #9d2449, #611232); }
+.leyenda-calor__barra { display: block; width: 90px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #e2c482, #c9993f, #d66a3c, #c4343e, #9d2449, #78163a, #460a24); }
