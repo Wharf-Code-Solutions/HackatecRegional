@@ -3,6 +3,7 @@ import './App.css'
 import NavBar from './components/NavBar';
 import CiudadanoPage from './components/CiudadanoPage';
 import Dashboard from './components/Dashboard';
+import Rastreo from './components/Rastreo';
 
 export default function App() {
   return (
@@ -17,6 +18,10 @@ export default function App() {
 
             {/* Ruta del Funcionario: Dashboard Admin */}
             <Route path="/admin" element={<Dashboard />} />
+
+            {/* Ruta del ciudadano: Seguimiento de Reportes */}
+            <Route path="/rastreo" element={<Rastreo />} />
+            
           </Routes>
         </main>
       </div>
