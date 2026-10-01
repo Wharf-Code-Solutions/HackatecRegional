@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import Map, { Marker } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import './MapView.css';
+import { LIMITES_MEXICO, ZOOM_MINIMO, dentroDeMexico } from '../lib/mexico';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 
@@ -35,6 +36,10 @@ export default function MapView({ onLocationChange, onGenerarReporte, incidencia
   const handleUbicarme = () => {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition((position) => {
+        if (!dentroDeMexico(position.coords.latitude, position.coords.longitude)) {
+          alert("Tu ubicación está fuera de México. Esta plataforma solo recibe reportes dentro del país.");
+          return;
+        }
         // Movemos el mapa a donde está parado el usuario con un zoom más cercano (16)
         setViewState({
           longitude: position.coords.longitude,
@@ -58,6 +63,8 @@ export default function MapView({ onLocationChange, onGenerarReporte, incidencia
         onMoveEnd={handleMoveEnd}
         mapStyle="mapbox://styles/mapbox/streets-v12"
         mapboxAccessToken={MAPBOX_TOKEN}
+        maxBounds={LIMITES_MEXICO}
+        minZoom={ZOOM_MINIMO}
         style={{ width: '100%', height: '100%' }}
       >
         {/* Incidencias activas de otros ciudadanos (sin datos personales) */}

@@ -1,4 +1,5 @@
 // Validaciones del formulario de reporte. Funciones puras: devuelven el mensaje de error o null.
+import { dentroDeMexico } from './mexico'
 
 export const TIPOS_FOTO = ['image/jpeg', 'image/png', 'image/webp']
 export const MAX_FOTO_MB = 15 // límite de entrada; se comprime antes de subir (bucket: 5 MB)
@@ -43,8 +44,9 @@ export function validarFoto(archivo) {
 }
 
 export function validarUbicacion(lat, lon) {
-  const ok = Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180
-  return ok ? null : 'Mueve el mapa para marcar la ubicación del problema'
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return 'Mueve el mapa para marcar la ubicación del problema'
+  if (!dentroDeMexico(lat, lon)) return 'La ubicación debe estar dentro de la República Mexicana'
+  return null
 }
 
 // Orden = orden en pantalla; el primero con error recibe el foco

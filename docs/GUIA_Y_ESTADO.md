@@ -97,6 +97,22 @@ El formulario envía `nombre_ciudadano` (obligatorio en la interfaz, opcional en
 - Las rutas (`/` y `/admin`), el formulario y la compresión de fotos se cargan bajo demanda; el JS inicial pasó de ~575 KB a ~261 KB (173 → 83 KB comprimido). `mapbox-gl` (~517 KB comprimido) se descarga justo después del primer pintado.
 - `vercel.json` marca `/assets/*` como inmutables (caché de un año; los nombres llevan hash).
 
+## Solo República Mexicana
+- El mapa (ciudadano y panel) no se puede alejar ni desplazar fuera de México (`maxBounds` + zoom mínimo 4, `src/lib/mexico.js`).
+- La ubicación del reporte se valida contra un **contorno aproximado del país** (con margen de decenas de km en costa y frontera), en el formulario y en el backend (`MEXICO_POLIGONO` en `api/index.py`). Fuera de México responde 422. "Ubicarme" avisa si el GPS está en otro país.
+- Los dos contornos (JS y Python) deben mantenerse iguales. Es una aproximación: cerca de la frontera puede aceptar puntos a pocos km del otro lado.
+
+## Score de prioridad por entorno
+`prioridad = min(10, prioridad_base de la categoría + (reportes - 1) + bonus_entorno)`
+- **bonus_entorno (0 a 4)** según lo que haya a 250 m del reporte (Mapbox Tilequery, `poi_label`, mismo token público del mapa):
+  - Peso por tipo de lugar: Hospital 4 · Jardín de niños 4 · Guardería 4 · Clínica 3 · Escuela 3 · Bomberos 3 · Consultorio 2 · Universidad 2 · Policía 2 · Asistencia social 2 · Dentista/Farmacia/Palacio municipal/Biblioteca 1. Si el tipo no está pero su clase sí: médico 1, educativo 2.
+  - Factor por distancia: ≤50 m x1.0 · ≤100 m x0.8 · ≤150 m x0.6 · ≤200 m x0.4 · ≤250 m x0.25. Se toma el mejor candidato (peso x factor, redondeado).
+  - +1 si hay 3 o más lugares sensibles (peso ≥ 2) en el radio. Tope total: +4.
+- Se calcula **una sola vez**, al crear la incidencia (su ubicación no cambia); si Mapbox falla, el reporte queda con la prioridad base.
+- Requiere ejecutar `db/004_entorno_prioridad.sql` (columnas `entorno_bonus` y `entorno_detalle`, función `aplicar_entorno`, `registrar_incidencia` ponderada y vista con `prioridad_base`). Antes de ejecutarlo todo funciona igual, sin bonus.
+- Las incidencias anteriores quedan con bonus 0. El panel muestra el desglose (tipo + reportes + entorno) y los lugares cercanos.
+- Los pesos son una propuesta ajustable: están en `LUGARES_SENSIBLES` de `api/index.py`.
+
 ## 6. Flujo de ramas
 - `main` = producción (Vercel). Solo entra código por PR.
 - `feat/*` = una rama por módulo, creada desde `main` actualizado. Cada push genera un preview en Vercel.

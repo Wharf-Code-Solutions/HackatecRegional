@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Map, { Marker } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import './Dashboard.css';
+import { LIMITES_MEXICO, ZOOM_MINIMO } from '../lib/mexico';
 import IncidentDetails from './IncidentDetails';
 import { getIncidencias, hace, folio, nivelPrioridad, coordenadas } from '../lib/api';
 
@@ -204,6 +205,8 @@ export default function Dashboard() {
           initialViewState={{ longitude: -96.1342, latitude: 19.1734, zoom: 13 }}
           mapStyle="mapbox://styles/mapbox/streets-v12"
           mapboxAccessToken={MAPBOX_TOKEN}
+          maxBounds={LIMITES_MEXICO}
+          minZoom={ZOOM_MINIMO}
           style={{ width: '100%', height: '100%' }}
         >
           {visibles.map((r) => (

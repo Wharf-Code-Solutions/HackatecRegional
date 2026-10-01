@@ -111,6 +111,20 @@ export default function IncidentDetails({ id, resumen, onClose, onCambio }) {
               {d.direccion && <div className="info-direccion">{d.direccion}</div>}
             </div>
 
+            {d.prioridad_base != null && (
+              <div className="info-box">
+                <div className="workflow-header">
+                  <span>Prioridad {d.prioridad}/10</span>
+                </div>
+                <ul className="desglose">
+                  <li><span>Tipo de problema</span><strong>+{d.prioridad_base}</strong></li>
+                  <li><span>Reportes adicionales</span><strong>+{Math.max(0, d.reportes_count - 1)}</strong></li>
+                  <li><span>Entorno sensible</span><strong>+{d.entorno_bonus ?? 0}</strong></li>
+                </ul>
+                {d.entorno_detalle && <div className="info-direccion">Cerca de: {d.entorno_detalle}</div>}
+              </div>
+            )}
+
             <div className="info-box">
               <div className="workflow-header">
                 <span>Estado de atención</span>

@@ -9,7 +9,7 @@ from email.utils import formataddr
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, EmailStr, field_validator
+from pydantic import BaseModel, Field, EmailStr, field_validator, model_validator
 from typing import Optional
 from uuid import UUID
 import httpx
@@ -123,7 +123,7 @@ ETAPAS = {
     "atendida": (
         "¡Tu reporte ha sido atendido!",
         "¡Tu reporte ha sido atendido!",
-        "Te informamos que la incidencia que reportaste ha sido marcada como <strong>resuelta</strong> "
+        "Te informamos que la incidencia que reportaste ha sido <strong>resuelta</strong> "
         "por las autoridades municipales.",
         VERDE,
     ),
@@ -264,12 +264,136 @@ def nombre_categoria_de(incidencia_id: str) -> Optional[str]:
         return None
 
 
+# ─────────────────────────────────────────────
+# SCORE DE ENTORNO: pondera la prioridad según lo que hay cerca del reporte
+#   prioridad = min(10, prioridad_base de la categoría + (reportes - 1) + bonus_entorno)
+# El bonus (0 a TOPE_ENTORNO) sale de los lugares sensibles cercanos (Mapbox Tilequery):
+#   mejor candidato = peso del tipo de lugar x factor por distancia, redondeado
+#   +1 si hay 3 o más lugares sensibles en el radio ("zona de alta sensibilidad")
+# Se calcula una sola vez, al crearse la incidencia (su ubicación no cambia).
+# ─────────────────────────────────────────────
+MAPBOX_TOKEN = os.environ.get("MAPBOX_TOKEN") or os.environ.get("VITE_MAPBOX_TOKEN")
+RADIO_ENTORNO_M = 250
+TOPE_ENTORNO = 4
+
+# tipo de lugar de Mapbox (minúsculas) -> (peso 1-4, etiqueta en español)
+LUGARES_SENSIBLES = {
+    "hospital":        (4, "Hospital"),
+    "clinic":          (3, "Clínica"),
+    "doctors":         (2, "Consultorio"),
+    "dentist":         (1, "Dentista"),
+    "pharmacy":        (1, "Farmacia"),
+    "kindergarten":    (4, "Jardín de niños"),
+    "day care":        (4, "Guardería"),
+    "school":          (3, "Escuela"),
+    "college":         (2, "Universidad"),
+    "university":      (2, "Universidad"),
+    "fire station":    (3, "Estación de bomberos"),
+    "police":          (2, "Policía"),
+    "social facility": (2, "Centro de asistencia social"),
+    "townhall":        (1, "Palacio municipal"),
+    "library":         (1, "Biblioteca"),
+}
+# Si el tipo no está en la tabla pero su clase sí: peso genérico
+PESO_POR_CLASE = {"medical": (1, "Servicio médico"), "education": (2, "Centro educativo")}
+
+
+def factor_distancia(metros: float) -> float:
+    for limite, factor in ((50, 1.0), (100, 0.8), (150, 0.6), (200, 0.4), (RADIO_ENTORNO_M, 0.25)):
+        if metros <= limite:
+            return factor
+    return 0.0
+
+
+def evaluar_lugares(lugares: list) -> tuple:
+    """lugares: [(clase, tipo, nombre, metros)] -> (bonus 0..TOPE_ENTORNO, detalle o None). Función pura, testeable."""
+    candidatos = []
+    for clase, tipo, nombre, metros in lugares:
+        peso, etiqueta = LUGARES_SENSIBLES.get((tipo or "").lower()) or PESO_POR_CLASE.get(clase) or (0, None)
+        puntos = peso * factor_distancia(metros)
+        if puntos > 0:
+            candidatos.append((puntos, peso, etiqueta, nombre, metros))
+    if not candidatos:
+        return 0, None
+    candidatos.sort(key=lambda c: (-c[0], c[4]))
+    bonus = round(candidatos[0][0])
+    if sum(1 for c in candidatos if c[1] >= 2) >= 3:
+        bonus += 1
+    bonus = max(0, min(TOPE_ENTORNO, bonus))
+    if bonus == 0:
+        return 0, None
+    def nombrar(etq, nom):
+        # evita "Escuela Escuela Primaria X": si el nombre ya empieza con la etiqueta, se usa solo el nombre
+        if not nom:
+            return etq
+        return nom if nom.lower().startswith(etq.lower()) else f"{etq} {nom}"
+
+    detalle = "; ".join(f"{nombrar(etq, nom)} a {round(m)} m" for _, _, etq, nom, m in candidatos[:2])
+    return bonus, detalle[:300]
+
+
+def calcular_entorno(lat: float, lon: float) -> tuple:
+    """Consulta lugares cercanos a Mapbox. Si falla o no hay token, devuelve (0, None): el reporte nunca depende de esto."""
+    if not MAPBOX_TOKEN:
+        return 0, None
+    try:
+        r = httpx.get(
+            f"https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/tilequery/{lon},{lat}.json",
+            params={"radius": RADIO_ENTORNO_M, "limit": 50, "layers": "poi_label", "access_token": MAPBOX_TOKEN},
+            timeout=3.0,
+        )
+        r.raise_for_status()
+        lugares = [
+            (
+                f["properties"].get("class"),
+                f["properties"].get("type"),
+                f["properties"].get("name"),
+                f["properties"].get("tilequery", {}).get("distance", 9999),
+            )
+            for f in r.json().get("features", [])
+        ]
+        return evaluar_lugares(lugares)
+    except Exception as e:
+        print(f"ERROR entorno (Mapbox): {type(e).__name__}")
+        return 0, None
+
+
 def enmascarar_correo(email: Optional[str]) -> Optional[str]:
     """ju***@gmail.com: el panel no necesita ver el correo completo."""
     if not email or "@" not in email:
         return None
     usuario, dominio = email.split("@", 1)
     return f"{usuario[:2]}***@{dominio}"
+
+
+# ─────────────────────────────────────────────
+# ÁREA DE SERVICIO: REPÚBLICA MEXICANA
+# Contorno aproximado (lon, lat) con margen de decenas de km para no rechazar reportes legítimos en
+# costa o frontera; excluye otros países (EE. UU., Guatemala, Cuba...). Debe coincidir con src/lib/mexico.js.
+# ─────────────────────────────────────────────
+MEXICO_POLIGONO = [
+    (-117.3, 32.7), (-115.4, 32.9), (-114.7, 32.9), (-111.0, 31.6), (-108.1, 31.6), (-106.4, 32.1),
+    (-104.4, 29.9), (-103.0, 29.3), (-101.4, 29.7), (-100.4, 29.0), (-99.4, 27.9), (-98.1, 26.6),
+    (-97.0, 26.3), (-96.3, 25.5), (-96.8, 22.2), (-95.3, 19.2), (-93.6, 18.1), (-91.8, 19.0),
+    (-90.2, 20.4), (-89.5, 21.95), (-86.3, 21.9), (-86.2, 20.0), (-87.0, 18.2), (-88.0, 17.9),
+    (-89.1, 17.7), (-90.9, 17.6), (-90.3, 16.2), (-91.6, 15.75), (-92.4, 14.3), (-93.2, 13.9),
+    (-95.2, 15.5), (-99.9, 16.0), (-104.4, 18.4), (-106.3, 22.5), (-109.0, 22.2), (-110.5, 22.5),
+    (-113.0, 24.2), (-115.7, 27.6), (-116.5, 30.0), (-117.7, 32.4),
+]
+
+
+def dentro_de_mexico(lat: float, lon: float) -> bool:
+    """Punto en polígono (ray casting)."""
+    dentro = False
+    n = len(MEXICO_POLIGONO)
+    j = n - 1
+    for i in range(n):
+        xi, yi = MEXICO_POLIGONO[i]
+        xj, yj = MEXICO_POLIGONO[j]
+        if (yi > lat) != (yj > lat) and lon < (xj - xi) * (lat - yi) / (yj - yi) + xi:
+            dentro = not dentro
+        j = i
+    return dentro
 
 
 # ─────────────────────────────────────────────
@@ -283,6 +407,12 @@ class ReporteNuevo(BaseModel):
     foto_url:    Optional[str] = None
     email_ciudadano: Optional[EmailStr] = None
     nombre_ciudadano: Optional[str] = Field(None, max_length=100)
+
+    @model_validator(mode="after")
+    def validar_ubicacion_en_mexico(self):
+        if not dentro_de_mexico(self.lat, self.lon):
+            raise ValueError("La ubicación debe estar dentro de la República Mexicana.")
+        return self
 
     @field_validator("descripcion", "foto_url", "nombre_ciudadano", mode="before")
     @classmethod
@@ -404,6 +534,22 @@ def registrar_reporte(reporte: ReporteNuevo, request: Request):
         if "22023" in error_msg or "inválida" in error_msg.lower() or "inactiva" in error_msg.lower():
             raise HTTPException(status_code=422, detail=f"Datos inválidos: {error_msg}")
         raise HTTPException(status_code=500, detail="Error interno del servidor.")
+
+    # Score de entorno: solo para incidencias nuevas (las agrupadas están a <= 10 m de una ya evaluada).
+    # Best-effort: si falla Mapbox o aún no se aplicó db/004, el reporte queda con la prioridad base.
+    if isinstance(datos, dict) and datos.get("incidencia_id") and not datos.get("agrupado"):
+        try:
+            bonus, detalle = calcular_entorno(reporte.lat, reporte.lon)
+            if bonus > 0:
+                aplicado = supabase.rpc("aplicar_entorno", {
+                    "p_incidencia_id": datos["incidencia_id"],
+                    "p_bonus": bonus,
+                    "p_detalle": detalle,
+                }).execute()
+                if aplicado.data is not None:
+                    datos = {**datos, "prioridad": aplicado.data, "entorno_bonus": bonus}
+        except Exception as e:
+            print(f"ERROR aplicar_entorno: {type(e).__name__}")
 
     # Etapa 1: confirmación al ciudadano que reporta (si dejó correo). Un fallo de correo no afecta al reporte.
     if reporte.email_ciudadano and isinstance(datos, dict) and datos.get("incidencia_id"):

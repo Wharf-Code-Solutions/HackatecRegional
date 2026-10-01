@@ -79,3 +79,9 @@
   .incident-panel { position: fixed; top: 60px; left: 0; right: 0; bottom: 0; width: 100%; height: auto; z-index: 900; animation: none; }
   .info-grid { grid-template-columns: 1fr; }
 }
+
+/* Desglose de la prioridad */
+.desglose { margin: 0; padding: 0; list-style: none; }
+.desglose li { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed #eee; font-size: 13px; }
+.desglose li:last-child { border-bottom: none; }
+.desglose strong { color: var(--gob-guinda); }
