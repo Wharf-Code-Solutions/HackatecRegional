@@ -62,15 +62,13 @@ export default function MapView({ onLocationChange, onGenerarReporte, incidencia
       >
         {/* Incidencias activas de otros ciudadanos (sin datos personales) */}
         {incidencias.map((inc, i) => (
-          <Marker key={`${inc.lat},${inc.lon},${inc.categoria},${i}`} longitude={inc.lon} latitude={inc.lat} anchor="center">
+          <Marker key={`${inc.lat},${inc.lon},${inc.categoria},${i}`} longitude={inc.lon} latitude={inc.lat} anchor="bottom">
             <button
               type="button"
               className={`pin-publico pin-publico-${inc.prioridad >= 7 ? 'alta' : inc.prioridad >= 4 ? 'media' : 'baja'}`}
               aria-label={`${inc.categoria_nombre}, ${inc.reportes_count} reporte(s)`}
               onClick={() => onSeleccionarIncidencia?.(inc)}
-            >
-              {inc.reportes_count > 1 ? inc.reportes_count : ''}
-            </button>
+            />
           </Marker>
         ))}
       </Map>
